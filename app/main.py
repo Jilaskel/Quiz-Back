@@ -27,7 +27,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.openapi import custom_openapi
 from app.db.session import init_db
-from app.api.v1.routers import todos
+from app.api.v1.routers import users
 import uvicorn
 
 app = FastAPI(
@@ -36,7 +36,7 @@ app = FastAPI(
     # contact={"name": "API team", "email": "api@example.com"},
     # license_info={"name": "MIT"},
     openapi_tags=[
-        {"name": "todos", "description": "Gestion de tâches"},
+        {"name": "users", "description": "Gestion de Utilisateurs"},
     ],
 )
 
@@ -48,7 +48,7 @@ app.add_middleware(
 )
 
 # Routers
-app.include_router(todos.router, prefix="/api/v1")
+app.include_router(users.router, prefix="/api/v1")
 
 # Génération du schéma OpenAPI custom (facultatif, mais propre)
 app.openapi = lambda: custom_openapi(app)

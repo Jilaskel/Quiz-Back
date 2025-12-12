@@ -3,7 +3,7 @@
 
 Exemples :
 
-get_todo_service() : crée un TodoService à partir d’une session DB.
+get_user_service() : crée un UserService à partir d’une session DB.
 
 pagination() : paramètres communs page et size.
 
@@ -17,11 +17,11 @@ Facile à injecter dans plusieurs endpoints (Depends()).
 from fastapi import Depends, Query
 from sqlmodel import Session
 from app.db.session import get_session
-from app.domain.repositories import TodoRepository
-from app.domain.services import TodoService
+from app.features.users.repositories import UserRepository
+from app.features.users.services import UserService
 
-def get_todo_service(session: Session = Depends(get_session)):
-    return TodoService(TodoRepository(session))
+def get_user_service(session: Session = Depends(get_session)):
+    return UserService(UserRepository(session))
 
 def pagination(
     page: int = Query(1, ge=1, description="Numéro de page", examples=[1]),

@@ -7,6 +7,7 @@ dependencies = [
   "uvicorn>=0.38.0",
   "sqlmodel>=0.0.22",         # SQLAlchemy 2.x + Pydantic v2, parfait pour SQLite
   "pydantic-settings>=2.5",
+  "passlib[argon2]>=1.7.4",
 ]
 
 [tool.ruff]
