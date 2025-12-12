@@ -26,6 +26,12 @@ uvicorn app.main:app --reload
 
 The server will start on `http://127.0.0.1:8000` or `http://localhost:8000`
 
+## Populate Database
+
+```
+python .\scripts\seed.py
+```
+
 ## Access Documentation
 
 - Swagger UI : http://127.0.0.1:8000/docs
