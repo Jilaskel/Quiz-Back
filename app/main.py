@@ -1,0 +1,62 @@
+"""
+➡️ But : assembler toutes les pièces du puzzle.
+
+Crée l’instance FastAPI (app).
+
+Configure :
+
+CORS (autorisations de qui peut appeler ces API)
+
+titre, version, tags
+
+schéma OpenAPI personnalisé
+
+Inclut les routers (ex : /api/v1/todos).
+
+Initialise la base SQLite au démarrage (@app.on_event("startup")).
+
+🔹 Avantages :
+
+Centralise la configuration du serveur HTTP.
+
+Point unique d’exécution : uvicorn app.main:app --reload.
+"""
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.core.config import settings
+from app.core.openapi import custom_openapi
+from app.db.session import init_db
+from app.api.v1.routers import todos
+import uvicorn
+
+app = FastAPI(
+    title=settings.APP_NAME,
+    version="1.0.0",
+    contact={"name": "API team", "email": "api@example.com"},
+    license_info={"name": "MIT"},
+    openapi_tags=[
+        {"name": "todos", "description": "Gestion de tâches"},
+    ],
+)
+
+# CORS (ajustez selon vos besoins)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], allow_credentials=True,
+    allow_methods=["*"], allow_headers=["*"],
+)
+
+# Routers
+app.include_router(todos.router, prefix="/api/v1")
+
+# Génération du schéma OpenAPI custom (facultatif, mais propre)
+app.openapi = lambda: custom_openapi(app)
+
+# Démarrage
+@app.on_event("startup")
+def on_startup():
+    init_db()
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=(settings.ENV == "dev"))

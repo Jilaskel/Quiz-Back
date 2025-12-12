@@ -1,6 +1,6 @@
 # Quiz Backend
 
-A simple Flask backend for a quiz application.
+A simple FastAPI backend for a quiz application.
 
 ## Setup
 
@@ -15,17 +15,19 @@ A simple Flask backend for a quiz application.
 
 3. Install dependencies:
    ```
-   pip install -r requirements.txt
+   pip install -e .
    ```
 
 ## Running the Server
 
 ```
-python app.py
+uvicorn app.main:app --reload
 ```
 
-The server will start on `http://localhost:5000`
+The server will start on `http://127.0.0.1:8000` or `http://localhost:8000`
 
-## API Endpoints
+## Access Documentation
 
-- `GET /api/hello` - Returns a hello message
+- Swagger UI : http://127.0.0.1:8000/docs
+- ReDoc : http://127.0.0.1:8000/redoc
+- OpenAPI JSON : http://127.0.0.1:8000/openapi.json
