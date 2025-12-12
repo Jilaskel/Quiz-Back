@@ -32,9 +32,9 @@ import uvicorn
 
 app = FastAPI(
     title=settings.APP_NAME,
-    version="1.0.0",
-    contact={"name": "API team", "email": "api@example.com"},
-    license_info={"name": "MIT"},
+    version="0.0.1",
+    # contact={"name": "API team", "email": "api@example.com"},
+    # license_info={"name": "MIT"},
     openapi_tags=[
         {"name": "todos", "description": "Gestion de tâches"},
     ],

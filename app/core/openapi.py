@@ -32,7 +32,7 @@ def custom_openapi(app):
         ),
         routes=app.routes,
     )
-    openapi_schema["info"]["contact"] = {"name": "API team", "email": "api@example.com"}
-    openapi_schema["info"]["license"] = {"name": "MIT"}
+    # openapi_schema["info"]["contact"] = {"name": "API team", "email": "api@example.com"}
+    # openapi_schema["info"]["license"] = {"name": "MIT"}
     app.openapi_schema = openapi_schema
     return app.openapi_schema
