@@ -14,8 +14,8 @@ Test unitaire possible sans passer par FastAPI.
 
 from datetime import datetime
 from fastapi import HTTPException, status
-from app.features.users.repositories import UserRepository
-from app.models.users import User
+from app.db.repositories.users import UserRepository
+from app.db.models.users import User
 
 from app.security.password import hash_password
 
@@ -46,7 +46,7 @@ class UserService:
         if username is not None:
             changes["username"] = username
         if password is not None:
-            changes["password"] = hash_password(password)
+            changes["hashed_password"] = hash_password(password)
         changes["updated_at"] = datetime.utcnow()
         return self.repo.update(user, **changes)
 
