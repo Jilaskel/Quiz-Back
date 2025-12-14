@@ -68,41 +68,41 @@ def sign_in(
 # -----------------------------
 # # Refresh (rotation)
 # # -----------------------------
-# @router.post(
-#     "/refresh",
-#     summary="Renouveler les tokens (rotation)",
-#     description="Lit le refresh dans le body **ou** dans le cookie httpOnly.",
-#     response_model=TokenPairOut,
-# )
-# def refresh(
-#     payload: Optional[RefreshIn] = None,
-#     refresh_cookie: Optional[str] = Cookie(default=None, alias=settings.AUTH_REFRESH_COOKIE_NAME),
-#     response: Response = None,  # type: ignore[assignment]
-#     svc: AuthService = Depends(get_auth_service),
-#     client_ctx=Depends(get_client_ip_and_ua),
-# ):
-#     # Priorité payload > cookie (permet aussi d'appeler depuis un client non-navigateur)
-#     refresh_token = (payload.refresh_token if payload else None) or refresh_cookie
-#     if not refresh_token:
-#         # On s'aligne avec le service : 401 sera renvoyé s'il est invalide, ici on renvoie 401 si absent
-#         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing refresh token")
+@router.post(
+    "/refresh",
+    summary="Renouveler les tokens (rotation)",
+    description="Lit le refresh dans le body **ou** dans le cookie httpOnly.",
+    response_model=TokenPairOut,
+)
+def refresh(
+    payload: Optional[RefreshIn] = None,
+    refresh_cookie: Optional[str] = Cookie(default=None, alias=settings.AUTH_REFRESH_COOKIE_NAME),
+    response: Response = None,  # type: ignore[assignment]
+    svc: AuthService = Depends(get_auth_service),
+    client_ctx=Depends(get_client_ip_and_ua),
+):
+    # Priorité payload > cookie (permet aussi d'appeler depuis un client non-navigateur)
+    refresh_token = (payload.refresh_token if payload else None) or refresh_cookie
+    if not refresh_token:
+        # On s'aligne avec le service : 401 sera renvoyé s'il est invalide, ici on renvoie 401 si absent
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing refresh token")
 
-#     pair = svc.refresh(
-#         RefreshIn(refresh_token=refresh_token),
-#         ip=client_ctx.ip,
-#         user_agent=client_ctx.user_agent,
-#     )
-#     # Met à jour le cookie httpOnly (rotation)
-#     response.set_cookie(
-#         key=settings.AUTH_REFRESH_COOKIE_NAME,
-#         value=pair.refresh_token,
-#         httponly=True,
-#         samesite=settings.AUTH_COOKIE_SAMESITE,
-#         secure=settings.AUTH_COOKIE_SECURE,
-#         max_age=settings.AUTH_COOKIE_MAX_AGE,
-#         path=settings.AUTH_COOKIE_PATH,
-#     )
-#     return pair
+    pair = svc.refresh(
+        RefreshIn(refresh_token=refresh_token),
+        ip=client_ctx.ip,
+        user_agent=client_ctx.user_agent,
+    )
+    # Met à jour le cookie httpOnly (rotation)
+    response.set_cookie(
+        key=settings.AUTH_REFRESH_COOKIE_NAME,
+        value=pair.refresh_token,
+        httponly=True,
+        samesite=settings.AUTH_COOKIE_SAMESITE,
+        secure=settings.AUTH_COOKIE_SECURE,
+        max_age=settings.AUTH_COOKIE_MAX_AGE,
+        path=settings.AUTH_COOKIE_PATH,
+    )
+    return pair
 
 # -----------------------------
 # Logout

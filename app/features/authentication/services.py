@@ -99,9 +99,17 @@ class AuthService:
         if not jti:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
+        def _to_aware_utc(dt):
+            if dt is None:
+                return None
+            if dt.tzinfo is None:
+                # À utiliser seulement si tu sais que tes dates DB sont en UTC
+                return dt.replace(tzinfo=timezone.utc)
+            return dt.astimezone(timezone.utc)
+
         # 2) Vérifier en base (existe, non révoqué, non expiré)
         rec = self.refresh_repo.get_by_jti(jti)
-        if not rec or rec.revoked_at is not None or rec.expires_at <= self.now_fn():
+        if not rec or rec.revoked_at is not None or _to_aware_utc(rec.expires_at) <= _to_aware_utc(self.now_fn()):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token invalid")
 
         # 3) Vérifier l'utilisateur
@@ -114,11 +122,11 @@ class AuthService:
         self.refresh_repo.revoke(jti)
 
         new_access = create_access_token(user_id=user.id, username=user.username, settings=self.jwt)
-        new_jti = new_jti()
-        new_refresh = create_refresh_token(user_id=user.id, username=user.username, jti=new_jti, settings=self.jwt)
+        jti2 = new_jti()
+        new_refresh = create_refresh_token(user_id=user.id, username=user.username, jti=jti2, settings=self.jwt)
 
-        self.refresh_repo.create_token(
-            jti=new_jti,
+        self.refresh_repo.create(
+            jti=jti2,
             user_id=user.id,
             expires_at=self.now_fn() + self.jwt.refresh_ttl,
             user_agent=user_agent,
