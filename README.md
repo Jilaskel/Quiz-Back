@@ -37,3 +37,36 @@ python .\scripts\seed.py
 - Swagger UI : http://127.0.0.1:8000/docs
 - ReDoc : http://127.0.0.1:8000/redoc
 - OpenAPI JSON : http://127.0.0.1:8000/openapi.json
+
+## Docker Launch (API server + File management MinIO for images and audio)
+
+Download and install : Dockerhttps://www.docker.com/products/docker-desktop/
+
+Open Docker Desktop
+
+Run docker build (no python venv needed)
+```
+docker compose up --build
+```
+
+### Comandes Docker
+
+Run docker build (no python venv needed)
+```
+docker compose up --build
+```
+
+Télécharger (ou mettre à jour) les images nécessaires à ton projet.
+```
+docker compose pull
+```
+
+Reset complet de l’environnement et des données persistantes.
+```
+docker compose down -v
+```
+
+### Access UI by Docker
+
+- Swagger UI : http://127.0.0.1:8000/docs
+- MinIO UI : http://localhost:9001/login (id en local minioadmin:minioadmin)

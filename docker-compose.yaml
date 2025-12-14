@@ -1,0 +1,43 @@
+services:
+  api:
+    build: .
+    container_name: api
+    env_file: .env
+    volumes:
+      - ./data:/app/data        # pour SQLite ou fichiers persistants
+    ports:
+      - "8080:8080"             # FastAPI → http://localhost:8080/docs
+    depends_on:
+      - minio
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    container_name: minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - ./minio-data:/data
+    ports:
+      - "9000:9000"             # API S3
+      - "9001:9001"             # Console d'admin MinIO
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    env_file: .env
+    volumes:
+      - ./scripts/minio-init.sh:/init/minio-init.sh:ro
+    entrypoint: ["/bin/sh"]
+    command: ["-x", "/init/minio-init.sh"]

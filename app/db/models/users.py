@@ -14,7 +14,8 @@ Tu manipules des objets Python, pas du SQL brut.
 Facile à migrer vers PostgreSQL ou MySQL plus tard.
 """
 
-from sqlmodel import Field
+from sqlmodel import Field, Relationship
+from typing import List
 
 from .base import BaseModelDB
 
@@ -22,3 +23,5 @@ class User(BaseModelDB, table=True):
     username: str = Field(index=True, unique=True)
     hashed_password: str
     admin: bool = Field(default=False)
+
+    # images: List["Image"] = Relationship(back_populates="owner")

@@ -29,6 +29,9 @@ from app.features.users.services import UserService
 from app.db.repositories.refresh_tokens import RefreshTokenRepository
 from app.features.authentication.services import AuthService
 
+from app.db.repositories.images import ImageRepository
+from app.features.media.services import ImageService
+
 from app.security.tokens import JWTSettings
 from app.core.config import jwt_settings
 
@@ -56,15 +59,16 @@ def get_auth_service(session: Session = Depends(get_session)) -> AuthService:
         jwt_settings=jwt_settings if isinstance(jwt_settings, JWTSettings) else JWTSettings(secret=str(jwt_settings)),
     )
 
-# def get_access_token_from_bearer(authorization: Optional[str] = Header(default=None, alias="Authorization")) -> str:
-#     """
-#     Extrait le bearer token depuis le header Authorization.
-#     Renvoie 401 si manquant/malformé.
-#     """
-#     print(authorization)
-#     if not authorization or not authorization.lower().startswith("bearer "):
-#         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing or invalid Authorization header")
-#     return authorization.split(" ", 1)[1].strip()
+# -----------------------------
+# Dépendances media
+# -----------------------------
+def get_image_service(db: Session = Depends(get_session)) -> ImageService:
+    repo = ImageRepository(db)
+    return ImageService(repo=repo)
+
+# -----------------------------
+# Authentication data
+# -----------------------------
 bearer_scheme = HTTPBearer(auto_error=True)
 
 def get_access_token_from_bearer(

@@ -27,8 +27,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.openapi import custom_openapi
 from app.db.session import init_db
+
 from app.api.v1.routers import users
 from app.api.v1.routers import authentication
+from app.api.v1.routers import images
+
 import uvicorn
 
 app = FastAPI(
@@ -39,6 +42,7 @@ app = FastAPI(
     openapi_tags=[
         {"name": "users", "description": "Gestion de Utilisateurs"},
         {"name": "auth", "description": "Opérations liées à l'authentification"},
+        {"name": "images", "description": "Opérations liées au stockage des images"},
     ],
 )
 
@@ -52,6 +56,7 @@ app.add_middleware(
 # Routers
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(authentication.router, prefix="/api/v1")
+app.include_router(images.router, prefix="/api/v1")
 
 # Génération du schéma OpenAPI custom (facultatif, mais propre)
 app.openapi = lambda: custom_openapi(app)
@@ -62,4 +67,4 @@ def on_startup():
     init_db()
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=(settings.ENV == "dev"))
+    uvicorn.run(app, host="127.0.0.1", port=8080, reload=(settings.ENV == "dev")) # http://localhost:8080

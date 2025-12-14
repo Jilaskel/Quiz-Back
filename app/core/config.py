@@ -20,6 +20,7 @@ from datetime import timedelta
 from typing import Optional
 
 from pydantic_settings import BaseSettings
+from pydantic import AnyHttpUrl
 from app.security.tokens import JWTSettings
 
 
@@ -40,8 +41,8 @@ class Settings(BaseSettings):
     # -----------------------------
     # JWT / Auth
     # -----------------------------
-    JWT_SECRET_KEY: str = "CHANGE_ME"     # ⚠️ change en prod
-    JWT_ISSUER: str = "todo-api"
+    JWT_SECRET_KEY: str = "SECRET_KEY"     # ⚠️ change en prod
+    JWT_ISSUER: str = "quiz-api"
     JWT_ALGORITHM: str = "HS256"
 
     ACCESS_TTL_MINUTES: int = 15          # access token court
@@ -53,6 +54,19 @@ class Settings(BaseSettings):
     AUTH_COOKIE_PATH: str = "/auth"
     AUTH_COOKIE_SECURE: Optional[bool] = None   # auto selon ENV si None
     AUTH_COOKIE_MAX_AGE: Optional[int] = None   # auto depuis REFRESH_TTL si None
+
+    # S3 / MinIO
+    S3_ENDPOINT: AnyHttpUrl = "http://minio:9000"
+    S3_REGION: str = "eu-west-1"
+    S3_BUCKET: str = "media"
+    S3_KEY: str = "appuser"
+    S3_SECRET: str = "appsecret"
+    S3_FORCE_PATH_STYLE: bool = True
+    PRESIGN_TTL_SECONDS: int = 60
+    MAX_UPLOAD_MB: int = 10
+
+    MINIO_ROOT_USER: str = "minioadmin"
+    MINIO_ROOT_PASSWORD: str = "minioadmin"
 
     model_config = {
         "env_file": ".env",

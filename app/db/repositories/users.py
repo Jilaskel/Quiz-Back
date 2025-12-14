@@ -12,9 +12,6 @@ Réutilisable (les services n’ont pas à savoir comment la DB fonctionne).
 Testable indépendamment (mock du repo sans base réelle).
 """
 
-# app/db/repositories/users.py
-from __future__ import annotations
-
 from typing import Optional
 from sqlmodel import select
 

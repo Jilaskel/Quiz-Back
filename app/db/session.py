@@ -18,6 +18,13 @@ from typing import Dict, Any
 from sqlmodel import SQLModel, create_engine, Session
 from sqlalchemy.engine import Engine
 
+# Import all models for creating all tables
+from app.db.models.users import User
+from app.db.models.images import Image
+from app.db.models.colors import Color
+from app.db.models.categories import Category
+from app.db.models.refresh_tokens import RefreshToken
+
 from app.core.config import settings
 
 def _build_engine() -> Engine:
