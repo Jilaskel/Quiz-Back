@@ -21,3 +21,4 @@ from .base import BaseModelDB
 class User(BaseModelDB, table=True):
     username: str = Field(index=True, unique=True)
     hashed_password: str
+    admin: bool = Field(default=False)

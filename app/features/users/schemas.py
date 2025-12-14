@@ -34,3 +34,4 @@ class UserOut(SQLModel):
     id: int
     username: str
     # hashed_password: str
+    admin: bool
