@@ -29,6 +29,23 @@ def _get_user_ctx_or_none(
     user = auth_svc.get_current_user(access_token=access_token)
     return (user.id, getattr(user, "admin", False))
 
+def _enrich_with_signed(
+    themes: List[ThemeOut],
+    *,
+    svc: ThemeService,
+    user_ctx: Optional[Tuple[int, bool]],
+) -> List[ThemeWithSignedUrlOut]:
+    enriched: List[ThemeWithSignedUrlOut] = []
+    for t in themes:
+        signed = svc._signed_url_for_theme(t, user_ctx)
+        enriched.append(
+            ThemeWithSignedUrlOut(
+                **t.model_dump(),  # type: ignore
+                image_signed_url=(signed["url"] if signed else None),
+                image_signed_expires_in=(signed["expires_in"] if signed else None),
+            )
+        )
+    return enriched
 
 # -----------------------------
 # Public list (no auth)
@@ -58,22 +75,12 @@ def list_public(
         q=q,
         newest_first=newest_first,
     )
-    if not with_signed_url:
-        return themes
-    
-    # Ici, URL signée possible SANS auth uniquement si (public & validé)
-    enriched = []
-    for t in themes:
-        signed = svc._signed_url_for_theme(t, user_ctx=None)  # public: pas de token
-        enriched.append(
-            ThemeWithSignedUrlOut(
-                **t.model_dump(),  # type: ignore
-                image_signed_url=(signed["url"] if signed else None),
-                image_signed_expires_in=(signed["expires_in"] if signed else None),
-            )
-        )
-    return enriched
 
+    if not with_signed_url:
+        # on “cast” simplement vers le schéma superset
+        return [ThemeWithSignedUrlOut(**t.model_dump()) for t in themes]  # type: ignore
+    # public: pas d’auth → URL seulement si (public & validé)
+    return _enrich_with_signed(themes, svc=svc, user_ctx=None)
 
 # -----------------------------
 # List mine (owner)
@@ -81,7 +88,7 @@ def list_public(
 @router.get(
     "/me",
     summary="Lister mes thèmes",
-    response_model=List[ThemeOut],
+    response_model=List[ThemeWithSignedUrlOut],
 )
 def list_mine(
     offset: int = Query(0, ge=0),
@@ -92,12 +99,14 @@ def list_mine(
     category_id: Optional[int] = Query(None),
     q: Optional[str] = Query(None),
     newest_first: bool = Query(True),
+    with_signed_url: bool = Query(False, description="Inclure une URL signée si autorisé"),
     access_token: str = Depends(get_access_token_from_bearer),
     auth_svc: AuthService = Depends(get_auth_service),
     svc: ThemeService = Depends(get_theme_service),
 ):
     user = auth_svc.get_current_user(access_token=access_token)
-    return svc.list_mine(
+
+    themes = svc.list_mine(
         user_id=user.id,
         offset=offset,
         limit=limit,
@@ -108,6 +117,11 @@ def list_mine(
         q=q,
         newest_first=newest_first,
     )
+    if not with_signed_url:
+        return [ThemeWithSignedUrlOut(**t.model_dump()) for t in themes]  # type: ignore
+    # owner: peut obtenir l’URL de ses thèmes
+    return _enrich_with_signed(themes, svc=svc, user_ctx=(user.id, getattr(user, "admin", False)))
+
 
 
 # -----------------------------
@@ -116,7 +130,7 @@ def list_mine(
 @router.get(
     "",
     summary="Lister tous les thèmes (admin)",
-    response_model=List[ThemeOut],
+    response_model=List[ThemeWithSignedUrlOut],
 )
 def list_all_admin(
     offset: int = Query(0, ge=0),
@@ -124,21 +138,26 @@ def list_all_admin(
     category_id: Optional[int] = Query(None),
     q: Optional[str] = Query(None),
     newest_first: bool = Query(True),
+    with_signed_url: bool = Query(False, description="Inclure une URL signée si autorisé"),
     access_token: str = Depends(get_access_token_from_bearer),
     auth_svc: AuthService = Depends(get_auth_service),
     svc: ThemeService = Depends(get_theme_service),
 ):
     user = auth_svc.get_current_user(access_token=access_token)
+    
     if not getattr(user, "admin", False):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin only")
-    return svc.list_all_as_admin(
+    themes = svc.list_all_as_admin(
         offset=offset,
         limit=limit,
         category_id=category_id,
         q=q,
         newest_first=newest_first,
     )
-
+    if not with_signed_url:
+        return [ThemeWithSignedUrlOut(**t.model_dump()) for t in themes]  # type: ignore
+    # admin: URL signée pour tous les thèmes
+    return _enrich_with_signed(themes, svc=svc, user_ctx=(user.id, True))
 
 # -----------------------------
 # Get by id (public/owner/admin)
@@ -164,6 +183,11 @@ def get_one(
     except LookupError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
 
+    # Si on ne veut pas d'URL signée, on renvoie juste les champs du thème
+    if not with_signed_url:
+        # On retourne un modèle identique, mais sans les champs supplémentaires
+        return ThemeWithSignedUrlOut(**t.model_dump())  # type: ignore
+    
     signed = svc._signed_url_for_theme(t, user_ctx if with_signed_url else None)
     return ThemeWithSignedUrlOut(
         **t.model_dump(),  # type: ignore

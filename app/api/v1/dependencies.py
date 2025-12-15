@@ -45,15 +45,16 @@ def pagination(
     offset = (page - 1) * size
     return {"offset": offset, "limit": size}
 
-# -----------------------------
-# Dépendances existantes (users)
-# -----------------------------
 
-def get_user_service(session: Session = Depends(get_session)):
+# -----------------------------
+# Users
+# -----------------------------
+def get_user_service(session: Session = Depends(get_session)) -> UserService:
     return UserService(UserRepository(session))
 
+
 # -----------------------------
-# Dépendances Auth
+# Auth
 # -----------------------------
 def get_auth_service(session: Session = Depends(get_session)) -> AuthService:
     return AuthService(
@@ -64,33 +65,44 @@ def get_auth_service(session: Session = Depends(get_session)) -> AuthService:
 
 
 # -----------------------------
-# Dépendances themes
+# Repositories
 # -----------------------------
-def get_theme_service(session: Session = Depends(get_session)) -> ThemeService:
-    theme_repo = ThemeRepository(session)
-    image_repo = ImageRepository(session)
-    img_svc = Depends(ImageService(repo=image_repo)),
-    return ThemeService(theme_repo, image_repo, img_svc)
+def get_image_repository(session: Session = Depends(get_session)) -> ImageRepository:
+    return ImageRepository(session)
 
 def get_theme_repository(session: Session = Depends(get_session)) -> ThemeRepository:
     return ThemeRepository(session)
 
-# -----------------------------
-# Dépendances media
-# -----------------------------
-def get_image_service(db: Session = Depends(get_session)) -> ImageService:
-    repo = ImageRepository(db)
-    return ImageService(repo=repo)
 
-def get_image_repository(session: Session = Depends(get_session)) -> ImageRepository:
-    return ImageRepository(session)
+# -----------------------------
+# Media services
+# -----------------------------
+def get_image_service(
+    image_repo: ImageRepository = Depends(get_image_repository),
+) -> ImageService:
+    # ✅ retourne une instance d'ImageService, pas de tuple, pas de Depends dans le corps
+    return ImageService(repo=image_repo)
 
 def get_image_access_service(
     img_svc: ImageService = Depends(get_image_service),
     image_repo: ImageRepository = Depends(get_image_repository),
     theme_repo: ThemeRepository = Depends(get_theme_repository),
 ) -> ImageAccessService:
+    # ✅ wrapper “policy-aware” Option A
     return ImageAccessService(image_svc=img_svc, image_repo=image_repo, theme_repo=theme_repo)
+
+
+# -----------------------------
+# Theme service
+# -----------------------------
+def get_theme_service(
+    theme_repo: ThemeRepository = Depends(get_theme_repository),
+    image_repo: ImageRepository = Depends(get_image_repository),
+    image_svc: ImageService = Depends(get_image_service),
+) -> ThemeService:
+    # ✅ toutes les dépendances injectées via la signature (FastAPI les résout)
+    return ThemeService(repo=theme_repo, image_repo=image_repo, image_svc=image_svc)
+
 
 # -----------------------------
 # Authentication data
@@ -100,10 +112,10 @@ bearer_scheme = HTTPBearer(auto_error=True)
 def get_access_token_from_bearer(
     credentials: HTTPAuthorizationCredentials = Security(bearer_scheme),
 ) -> str:
-    # credentials.scheme == "Bearer", credentials.credentials == <token>
     if not credentials or credentials.scheme.lower() != "bearer":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid auth scheme")
     return credentials.credentials
+
 
 @dataclass
 class ClientContext:
