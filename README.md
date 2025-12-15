@@ -68,5 +68,5 @@ docker compose down -v
 
 ### Access UI by Docker
 
-- Swagger UI : http://127.0.0.1:8000/docs
+- Swagger UI : http://localhost:8080/docs
 - MinIO UI : http://localhost:9001/login (id en local minioadmin:minioadmin)

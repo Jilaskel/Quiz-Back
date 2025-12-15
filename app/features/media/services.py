@@ -1,11 +1,14 @@
-from typing import Optional, Callable
+from typing import Optional, Callable, Tuple
 from fastapi import UploadFile, HTTPException, status
 import io
 
 from app.core.config import settings
 from app.db.repositories.images import ImageRepository
+from app.db.repositories.themes import ThemeRepository
 from app.utils.s3 import make_s3_client, presign_get_url
 from app.utils.images import read_and_validate, build_object_key
+
+UserCtx = Optional[Tuple[int, bool]]  # (user_id, is_admin)
 
 class ImageService:
     """
@@ -79,3 +82,69 @@ class ImageService:
             self.repo.delete(img)
             raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Erreur MinIO: {e}")
         self.repo.delete(img)
+
+class ImageAccessService:
+    """
+    Applique la policy d'accès aux images:
+    - Autorisé sans token si image liée à >=1 thème public & validé
+    - Sinon: token requis et (owner ou admin)
+    """
+    def __init__(self, image_svc: ImageService, image_repo: ImageRepository, theme_repo: ThemeRepository):
+        self.image_svc = image_svc
+        self.image_repo = image_repo
+        self.theme_repo = theme_repo
+
+    def signed_get_authorized(self, image_id: str, user_ctx: UserCtx) -> dict:
+        # 1) public exposable ?
+        try:
+            if self.theme_repo.image_is_publicly_exposable(int(image_id)):
+                return self.image_svc.signed_get(image_id)
+        except ValueError:
+            pass  # image_id non entier -> on laissera 404 si pas trouvé
+
+        # 2) sinon auth requise: owner ou admin
+        if user_ctx is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
+
+        user_id, is_admin = user_ctx
+        img = self.image_repo.get(image_id)  # str accepté par repo.get
+        if not img:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image introuvable")
+
+        if not is_admin and getattr(img, "owner_id", None) != user_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+        return self.image_svc.signed_get(image_id)
+    
+    def delete_authorized(self, image_id: str, user_ctx: UserCtx) -> None:
+        """
+        Règles:
+          - Auth obligatoire.
+          - Seul le propriétaire ou un admin peut supprimer.
+          - Interdit si l'image est exposée publiquement (>=1 thème public & validé) -> 409.
+        """
+        if user_ctx is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
+
+        user_id, is_admin = user_ctx
+
+        img = self.image_repo.get(image_id)
+        if not img:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image introuvable")
+
+        if not is_admin and getattr(img, "owner_id", None) != user_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+        # Bloque la suppression si l'image est référencée par un thème public + validé
+        try:
+            if self.theme_repo.image_is_publicly_exposable(int(image_id)):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Image liée à au moins un thème public validé",
+                )
+        except ValueError:
+            # image_id non entier : on considère qu'il n'y a pas de thème référent public/validé
+            pass
+
+        # OK -> suppression via ImageService
+        self.image_svc.delete(image_id)

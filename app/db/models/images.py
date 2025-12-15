@@ -1,11 +1,8 @@
 from typing import Optional
-from sqlmodel import Field, Relationship
-from datetime import datetime
-from uuid import uuid4
+from sqlmodel import Field
 from sqlalchemy import Column, ForeignKey, Integer
 
 from .base import BaseModelDB
-from .users import User
 
 class Image(BaseModelDB, table=True):
     """Images stockées dans MinIO, référencées dans la base."""
@@ -21,7 +18,7 @@ class Image(BaseModelDB, table=True):
     owner_id: int = Field(
         sa_column=Column(
             Integer,
-            ForeignKey("user.id", ondelete="CASCADE"),  # optionnel : cascade côté DB
+            ForeignKey("user.id"),  # optionnel : cascade côté DB
             nullable=False,
             index=True,
         ),

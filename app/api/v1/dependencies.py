@@ -30,7 +30,10 @@ from app.db.repositories.refresh_tokens import RefreshTokenRepository
 from app.features.authentication.services import AuthService
 
 from app.db.repositories.images import ImageRepository
-from app.features.media.services import ImageService
+from app.features.media.services import ImageService, ImageAccessService
+
+from app.db.repositories.themes import ThemeRepository
+from app.features.themes.services import ThemeService
 
 from app.security.tokens import JWTSettings
 from app.core.config import jwt_settings
@@ -59,12 +62,35 @@ def get_auth_service(session: Session = Depends(get_session)) -> AuthService:
         jwt_settings=jwt_settings if isinstance(jwt_settings, JWTSettings) else JWTSettings(secret=str(jwt_settings)),
     )
 
+
+# -----------------------------
+# Dépendances themes
+# -----------------------------
+def get_theme_service(session: Session = Depends(get_session)) -> ThemeService:
+    theme_repo = ThemeRepository(session)
+    image_repo = ImageRepository(session)
+    img_svc = Depends(ImageService(repo=image_repo)),
+    return ThemeService(theme_repo, image_repo, img_svc)
+
+def get_theme_repository(session: Session = Depends(get_session)) -> ThemeRepository:
+    return ThemeRepository(session)
+
 # -----------------------------
 # Dépendances media
 # -----------------------------
 def get_image_service(db: Session = Depends(get_session)) -> ImageService:
     repo = ImageRepository(db)
     return ImageService(repo=repo)
+
+def get_image_repository(session: Session = Depends(get_session)) -> ImageRepository:
+    return ImageRepository(session)
+
+def get_image_access_service(
+    img_svc: ImageService = Depends(get_image_service),
+    image_repo: ImageRepository = Depends(get_image_repository),
+    theme_repo: ThemeRepository = Depends(get_theme_repository),
+) -> ImageAccessService:
+    return ImageAccessService(image_svc=img_svc, image_repo=image_repo, theme_repo=theme_repo)
 
 # -----------------------------
 # Authentication data
