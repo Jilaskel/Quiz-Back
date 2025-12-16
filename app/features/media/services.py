@@ -5,7 +5,7 @@ import io
 from app.core.config import settings
 from app.db.repositories.images import ImageRepository
 from app.db.repositories.themes import ThemeRepository
-from app.utils.s3 import make_s3_client, presign_get_url
+from app.utils.s3 import make_s3_internal, make_s3_public, presign_get_url
 from app.utils.images import read_and_validate, build_object_key
 
 UserCtx = Optional[Tuple[int, bool]]  # (user_id, is_admin)
@@ -20,10 +20,12 @@ class ImageService:
         self,
         *,
         repo: ImageRepository,
-        s3_client_factory: Callable[[], object] = make_s3_client,
+        s3_client_internal_factory: Callable[[], object] = make_s3_internal,
+        s3_client_public_factory: Callable[[], object] = make_s3_public,
     ):
         self.repo = repo
-        self._s3_factory = s3_client_factory
+        self._s3_internal_factory = s3_client_internal_factory
+        self._s3_public_factory = s3_client_public_factory
         self.settings = settings
 
     async def upload(self, file: UploadFile, *, owner_id: Optional[int]) -> dict:
@@ -34,7 +36,7 @@ class ImageService:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
         key = build_object_key(owner_id, ext)
-        s3 = self._s3_factory()
+        s3 = self._s3_internal_factory()
         try:
             s3.upload_fileobj(
                 Fileobj=io.BytesIO(raw),
@@ -60,7 +62,7 @@ class ImageService:
         img = self.repo.get(image_id)
         if not img:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image introuvable")
-        s3 = self._s3_factory()
+        s3 = self._s3_public_factory()
         url = presign_get_url(
             s3,
             bucket=img.bucket,
@@ -74,7 +76,7 @@ class ImageService:
         img = self.repo.get(image_id)
         if not img:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image introuvable")
-        s3 = self._s3_factory()
+        s3 = self._s3_internal_factory()
         try:
             s3.delete_object(Bucket=img.bucket, Key=img.object_key)
         except Exception as e:

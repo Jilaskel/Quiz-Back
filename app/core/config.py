@@ -67,6 +67,8 @@ class Settings(BaseSettings):
 
     MINIO_ROOT_USER: str = "minioadmin"
     MINIO_ROOT_PASSWORD: str = "minioadmin"
+    
+    MINIO_PUBLIC_ENDPOINT: str = "http://localhost:9000"
 
     model_config = {
         "env_file": ".env",
