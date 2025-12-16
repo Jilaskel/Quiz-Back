@@ -1,0 +1,636 @@
+colors:
+  - key: red
+    name: Red
+    hex_code: "#E63946"
+    description: "Rouge vif, couleur d'alerte ou d'action."
+
+  - key: orange
+    name: Orange
+    hex_code: "#F77F00"
+    description: "Orange énergique, pour attirer l'attention."
+
+  - key: yellow
+    name: Yellow
+    hex_code: "#FFBE0B"
+    description: "Jaune lumineux, utilisé pour les avertissements."
+
+  - key: lime
+    name: Lime
+    hex_code: "#9EF01A"
+    description: "Vert citron éclatant, symbole de fraîcheur."
+
+  - key: green
+    name: Green
+    hex_code: "#2A9D8F"
+    description: "Vert apaisant, associé à la stabilité."
+
+  - key: teal
+    name: Teal
+    hex_code: "#00B4D8"
+    description: "Bleu sarcelle lumineux, couleur technologique."
+
+  - key: blue
+    name: Blue
+    hex_code: "#1D4ED8"
+    description: "Bleu profond, couleur de confiance."
+
+  - key: indigo
+    name: Indigo
+    hex_code: "#5E60CE"
+    description: "Indigo soutenu, élégant et professionnel."
+
+  - key: violet
+    name: Violet
+    hex_code: "#9B5DE5"
+    description: "Violet doux, évoquant la créativité."
+
+  - key: pink
+    name: Pink
+    hex_code: "#FF006E"
+    description: "Rose fuchsia, pour une touche vibrante."
+
+  - key: brown
+    name: Brown
+    hex_code: "#8D5524"
+    description: "Brun terreux, pour des éléments naturels."
+
+  - key: gray
+    name: Gray
+    hex_code: "#6B7280"
+    description: "Gris neutre, parfait pour les fonds ou textes secondaires."
+
+  - key: cyan
+    name: Cyan
+    hex_code: "#06D6A0"
+    description: "Cyan lumineux, moderne et dynamique."
+
+  - key: magenta
+    name: Magenta
+    hex_code: "#D7263D"
+    description: "Magenta profond, expressif et impactant."
+
+  - key: gold
+    name: Gold
+    hex_code: "#E9C46A"
+    description: "Or doux, associé au prestige et au savoir."
+
+  - key: navy
+    name: Navy
+    hex_code: "#0B132B"
+    description: "Bleu marine, sérieux et institutionnel."
+
+  - key: olive
+    name: Olive
+    hex_code: "#6B8E23"
+    description: "Vert olive, naturel et équilibré."
+
+  - key: coral
+    name: Coral
+    hex_code: "#FF7F50"
+    description: "Corail chaleureux, convivial et vivant."
+
+  - key: plum
+    name: Plum
+    hex_code: "#7B2CBF"
+    description: "Prune intense, sophistiqué et créatif."
+
+  - key: sand
+    name: Sand
+    hex_code: "#EADBC8"
+    description: "Sable clair, doux et apaisant."
+
+categories:
+  - key: films_series
+    name: "Films/Séries"
+    color_key: orange
+
+  - key: musique
+    name: "Musique"
+    color_key: pink
+
+  - key: litterature_bds
+    name: "Littérature/BDs"
+    color_key: brown
+
+  - key: manga_animes
+    name: "Manga/Animés"
+    color_key: violet
+
+  - key: jeux_video
+    name: "Jeux vidéo"
+    color_key: lime
+
+  - key: sport
+    name: "Sport"
+    color_key: red
+
+  - key: histoire
+    name: "Histoire"
+    color_key: gold
+
+  - key: geographie
+    name: "Géographie"
+    color_key: blue
+
+  - key: science_technologie
+    name: "Science/Technologie"
+    color_key: teal
+
+  - key: arts_plastiques
+    name: "Arts plastiques"
+    color_key: indigo
+
+  - key: nature
+    name: "Nature"
+    color_key: olive
+
+  - key: societe
+    name: "Société"
+    color_key: navy
+
+  - key: cuisine
+    name: "Cuisine"
+    color_key: coral
+
+  - key: divers
+    name: "Divers"
+    color_key: gray
+
+users:
+  - key: thomas
+    username: Thomas
+    password: Thomas123
+    admin: true
+  - key: martin
+    username: Martin
+    password: Martin123
+    admin: true
+  - key: maxime
+    username: Maxime
+    password: Maxime123
+    admin: false
+  - key: xavier
+    username: Xavier
+    password: Xavier123
+    admin: false
+
+themes:
+  - key: bd_franco_belge
+    name: "BD Franco-Belge"
+    description: "Les grands classiques de la bande dessinée franco-belge."
+    owner_key: martin
+    category_key: litterature_bds
+    image_path: "app/db/docs/img/theme_covers/bd_franco_belge.jpg"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: beyonce
+    name: "Beyoncé"
+    description: "La carrière et les tubes de Queen B."
+    owner_key: thomas
+    category_key: musique
+    image_path: "app/db/docs/img/theme_covers/beyonce.png"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: big_three_tennis
+    name: "Big Three Tennis"
+    description: "Federer, Nadal, Djokovic et leur domination."
+    owner_key: martin
+    category_key: sport
+    image_path: "app/db/docs/img/theme_covers/big_three_tennis.jpg"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: cerveau
+    name: "Cerveau"
+    description: "Fonctionnement, mystères et capacités du cerveau humain et animal."
+    owner_key: martin
+    category_key: science_technologie
+    image_path: "app/db/docs/img/theme_covers/cerveau.png"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: chansons_disney
+    name: "Chansons Disney"
+    description: "Les chansons cultes de l'univers Disney."
+    owner_key: martin
+    category_key: musique
+    image_path: "app/db/docs/img/theme_covers/chansons_disney.jpg"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: cryptozoologie
+    name: "Cryptozoologie"
+    description: "Créatures mystérieuses et légendes modernes."
+    owner_key: martin
+    category_key: nature
+    image_path: "app/db/docs/img/theme_covers/cryptozoologie.jpg"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: cuisine_francaise
+    name: "Cuisine française"
+    description: "Gastronomie et spécialités françaises."
+    owner_key: thomas
+    category_key: cuisine
+    image_path: "app/db/docs/img/theme_covers/cuisine_francaise.jpg"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: cuisine_francaise_martin
+    name: "Cuisine française 2"
+    description: "Recettes et culture culinaire française."
+    owner_key: martin
+    category_key: cuisine
+    image_path: "app/db/docs/img/theme_covers/cuisine_francaise_martin.jpg"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: culture_generale
+    name: "Culture générale"
+    description: "Questions variées sur tous les sujets."
+    owner_key: thomas
+    category_key: divers
+    image_path: "app/db/docs/img/theme_covers/culture_generale.png"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: culture_generale_4p
+    name: "Culture générale 4P"
+    description: "Culture générale pensée pour jouer à plusieurs."
+    owner_key: thomas
+    category_key: divers
+    image_path: "app/db/docs/img/theme_covers/culture_generale_4p.jpg"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: culture_generale_2025
+    name: "Culture générale 2025"
+    description: "Actualités et faits marquants récents."
+    owner_key: thomas
+    category_key: divers
+    image_path: "app/db/docs/img/theme_covers/culture_generale_2025.png"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: culture_generale_tp_2000
+    name: "Culture générale TP 2000"
+    description: "Culture générale niveau TP2000."
+    owner_key: martin
+    category_key: divers
+    image_path: "app/db/docs/img/theme_covers/culture_generale_tp_2000.png"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: dark
+    name: "Dark"
+    description: "La série allemande et ses paradoxes temporels."
+    owner_key: maxime
+    category_key: films_series
+    image_path: "app/db/docs/img/theme_covers/dark.jpg"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: dragon_ball_z
+    name: "Dragon Ball Z"
+    description: "Combats légendaires et personnages iconiques."
+    owner_key: maxime
+    category_key: manga_animes
+    image_path: "app/db/docs/img/theme_covers/dragon_ball_z.jpg"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: exclusivites_playstation
+    name: "Exclusivités PlayStation"
+    description: "Les jeux incontournables de PlayStation."
+    owner_key: martin
+    category_key: jeux_video
+    image_path: "app/db/docs/img/theme_covers/exclusivites_playstation.png"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: fatal_bazooka
+    name: "Fatal Bazooka"
+    description: "L'univers décalé de Fatal Bazooka."
+    owner_key: martin
+    category_key: musique
+    image_path: "app/db/docs/img/theme_covers/fatal_bazooka.jpg"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: films_disney
+    name: "Films Disney"
+    description: "Les films cultes de Disney."
+    owner_key: thomas
+    category_key: films_series
+    image_path: "app/db/docs/img/theme_covers/films_disney.png"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: foot_coupe_du_monde
+    name: "Foot – Coupe du Monde"
+    description: "Histoire et moments mythiques du Mondial."
+    owner_key: thomas
+    category_key: sport
+    image_path: "app/db/docs/img/theme_covers/foot_coupe_du_monde.jpg"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: game_of_thrones
+    name: "Game of Thrones"
+    description: "Intrigues, maisons et dragons."
+    owner_key: thomas
+    category_key: films_series
+    image_path: "app/db/docs/img/theme_covers/game_of_thrones.png"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: harry_potter
+    name: "Harry Potter"
+    description: "Le monde magique de Poudlard."
+    owner_key: maxime
+    category_key: litterature_bds
+    image_path: "app/db/docs/img/theme_covers/harry_potter.png"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: heros_marvel
+    name: "Héros Marvel"
+    description: "Super-héros et univers Marvel."
+    owner_key: maxime
+    category_key: films_series
+    image_path: "app/db/docs/img/theme_covers/heros_marvel.jpg"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: impressionnisme
+    name: "Impressionnisme"
+    description: "Peintres et œuvres impressionnistes."
+    owner_key: martin
+    category_key: arts_plastiques
+    image_path: "app/db/docs/img/theme_covers/impressionnisme.jpg"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: iron_maiden
+    name: "Iron Maiden"
+    description: "Le groupe mythique de heavy metal."
+    owner_key: maxime
+    category_key: musique
+    image_path: "app/db/docs/img/theme_covers/iron_maiden.jpg"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: jv_pokemon
+    name: "JV Pokémon"
+    description: "Les jeux vidéo Pokémon."
+    owner_key: thomas
+    category_key: jeux_video
+    image_path: "app/db/docs/img/theme_covers/jv_pokemon.png"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: les_chats
+    name: "Les chats"
+    description: "Chats célèbres, races et anecdotes."
+    owner_key: thomas
+    category_key: nature
+    image_path: "app/db/docs/img/theme_covers/les_chats.jpg"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: ligue_des_champions
+    name: "Ligue des Champions"
+    description: "La plus grande compétition européenne."
+    owner_key: maxime
+    category_key: sport
+    image_path: "app/db/docs/img/theme_covers/ligue_des_champions.png"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: ligue_des_champions_2
+    name: "Ligue des Champions 2"
+    description: "Suite et variantes de la Ligue des Champions."
+    owner_key: thomas
+    category_key: sport
+    image_path: "app/db/docs/img/theme_covers/ligue_des_champions_2.png"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: lol_competitif
+    name: "LoL compétitif"
+    description: "L'e-sport et la scène professionnelle LoL."
+    owner_key: martin
+    category_key: jeux_video
+    image_path: "app/db/docs/img/theme_covers/lol_competitif.png"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: malcolm
+    name: "Malcolm"
+    description: "La série culte Malcolm in the Middle."
+    owner_key: thomas
+    category_key: films_series
+    image_path: "app/db/docs/img/theme_covers/malcolm.jpg"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: mythologie_greco_romaine
+    name: "Mythologie gréco-romaine"
+    description: "Dieux, héros et mythes antiques."
+    owner_key: xavier
+    category_key: histoire
+    image_path: "app/db/docs/img/theme_covers/mythologie_greco_romaine.png"
+    is_public: true
+    is_ready: false
+    valid_admin: false
+
+  - key: nintendo
+    name: "Nintendo"
+    description: "L'univers et les licences Nintendo."
+    owner_key: thomas
+    category_key: jeux_video
+    image_path: "app/db/docs/img/theme_covers/nintendo.png"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: one_piece
+    name: "One Piece"
+    description: "L'équipage de Luffy et la quête du One Piece."
+    owner_key: xavier
+    category_key: manga_animes
+    image_path: "app/db/docs/img/theme_covers/one_piece.png"
+    is_public: true
+    is_ready: false
+    valid_admin: false
+
+  - key: petanque_pastis
+    name: "Pétanque & pastis"
+    description: "Ambiance et traditions du sud."
+    owner_key: thomas
+    category_key: sport
+    image_path: "app/db/docs/img/theme_covers/petanque_pastis.jpg"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: pirates_des_caraibes
+    name: "Pirates des Caraïbes"
+    description: "Aventures de Jack Sparrow."
+    owner_key: thomas
+    category_key: films_series
+    image_path: "app/db/docs/img/theme_covers/pirates_des_caraibes.jpg"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: rap_francais
+    name: "Rap français"
+    description: "Artistes et classiques du rap français."
+    owner_key: thomas
+    category_key: musique
+    image_path: "app/db/docs/img/theme_covers/rap_francais.png"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: rivalite_djokovic_alcaraz
+    name: "Rivalité Djokovic – Alcaraz"
+    description: "Une rivalité moderne du tennis."
+    owner_key: thomas
+    category_key: sport
+    image_path: "app/db/docs/img/theme_covers/rivalite_djokovic_alcaraz.png"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: seigneur_des_anneaux
+    name: "Le Seigneur des Anneaux"
+    description: "La Terre du Milieu et ses héros."
+    owner_key: martin
+    category_key: litterature_bds
+    image_path: "app/db/docs/img/theme_covers/seigneur_des_anneaux.png"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: slack
+    name: "Slack"
+    description: "La Slackline : performances et records"
+    owner_key: thomas
+    category_key: sport
+    image_path: "app/db/docs/img/theme_covers/slack.jpg"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: surrealisme
+    name: "Surréalisme"
+    description: "Mouvement artistique et œuvres surréalistes."
+    owner_key: martin
+    category_key: arts_plastiques
+    image_path: "app/db/docs/img/theme_covers/surrealisme.png"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: techno
+    name: "Techno"
+    description: "Musique électronique et culture techno."
+    owner_key: thomas
+    category_key: musique
+    image_path: "app/db/docs/img/theme_covers/techno.png"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: the_office
+    name: "The Office"
+    description: "La série culte du bureau le plus gênant."
+    owner_key: thomas
+    category_key: films_series
+    image_path: "app/db/docs/img/theme_covers/the_office.jpg"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: the_walking_dead
+    name: "The Walking Dead"
+    description: "Survivre dans un monde post-apocalyptique."
+    owner_key: martin
+    category_key: films_series
+    image_path: "app/db/docs/img/theme_covers/the_walking_dead.jpg"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: velo
+    name: "Vélo"
+    description: "Cyclisme, compétitions et culture vélo."
+    owner_key: martin
+    category_key: sport
+    image_path: "app/db/docs/img/theme_covers/velo.jpg"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: world_of_warcraft
+    name: "World of Warcraft"
+    description: "L'univers d'Azeroth, ses factions et ses légendes."
+    owner_key: martin
+    category_key: jeux_video
+    image_path: "app/db/docs/img/theme_covers/world_of_warcraft.jpg"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: zelda
+    name: "Zelda"
+    description: "La saga The Legend of Zelda et ses aventures."
+    owner_key: thomas
+    category_key: jeux_video
+    image_path: "app/db/docs/img/theme_covers/zelda.jpg"
+    is_public: true
+    is_ready: true
+    valid_admin: true
+
+  - key: z_event
+    name: "Z Event"
+    description: "L'événement caritatif, ses éditions et ses moments forts."
+    owner_key: xavier
+    category_key: societe
+    image_path: "app/db/docs/img/theme_covers/z_event.jpg"
+    is_public: true
+    is_ready: false
+    valid_admin: false

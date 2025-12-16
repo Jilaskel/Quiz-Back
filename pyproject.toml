@@ -12,6 +12,7 @@ dependencies = [
   "boto3>=1.42.9",
   "filetype>=1.2.0",
   "python-multipart>=0.0.20",
+  "PyYAML>=6.0.3",
 ]
 
 [tool.ruff]

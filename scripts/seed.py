@@ -1,13 +1,21 @@
 from app.db.session import engine, Session, init_db
-from app.db.seed import seed_users, seed_colors, seed_categories
+from app.db.repositories.images import ImageRepository
+from app.features.media.services import ImageService
+from app.db.seed import seed_all
+import asyncio
 
-def main():
+async def run_seed():
     init_db()
     with Session(engine) as session:
-        seed_users(session)
-        seed_colors(session)
-        seed_categories(session)
-    print("🌱 Base peuplée avec succès !")
+        image_repo = ImageRepository(session)
+        image_service = ImageService(repo=image_repo)
 
-if __name__ == "__main__":
-    main()
+        # 3️⃣ lancer le seed
+        await seed_all(
+            session=session,
+            seed_path="app/db/seed_data.yaml",
+            img_svc=image_service,
+        )
+        session.close()
+
+asyncio.run(run_seed())

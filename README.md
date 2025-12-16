@@ -70,3 +70,10 @@ docker compose down -v
 
 - Swagger UI : http://localhost:8080/docs
 - MinIO UI : http://localhost:9001/login (id en local minioadmin:minioadmin)
+
+### Execute python script in docker instance back
+
+Populate Database
+```
+docker compose exec api python scripts/seed.py
+```
