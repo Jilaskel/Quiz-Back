@@ -4,10 +4,44 @@ from sqlmodel import select, or_, func
 
 from app.db.repositories.base import BaseRepository
 from app.db.models.themes import Theme
+from app.db.models.users import User
+from app.db.models.categories import Category
+from app.db.models.colors import Color
+from app.features.themes.schemas import ThemeOut
 
 class ThemeRepository(BaseRepository[Theme]):
     """CRUD Themes + requêtes spécifiques."""
     model = Theme
+
+    # ---------- HELPERS ----------
+
+    def _select_theme_out(self):
+        """Projection SQL standardisée pour construire ThemeOut."""
+        return (
+            select(
+                Theme.id,
+                Theme.name,
+                Theme.description,
+                Theme.image_id,
+                Theme.category_id,
+                Category.name.label("category_name"),
+                Color.hex_code.label("category_color_hex"),
+                Theme.owner_id,
+                User.username.label("owner_username"),
+                Theme.is_public,
+                Theme.is_ready,
+                Theme.valid_admin,
+                Theme.created_at,
+                Theme.updated_at,
+            )
+            .select_from(Theme)
+            .join(User, User.id == Theme.owner_id)
+            .join(Category, Category.id == Theme.category_id, isouter=True)
+            .join(Color, Color.id == Category.color_id, isouter=True)
+        )
+
+    def _rows_to_theme_out(self, rows) -> list[ThemeOut]:
+        return [ThemeOut(**dict(r._mapping)) for r in rows]
 
     # ---------- GETTERS SPÉCIFIQUES ----------
 
@@ -49,7 +83,7 @@ class ThemeRepository(BaseRepository[Theme]):
         - category_id    : filtre par catégorie
         - q              : recherche insensible à la casse sur name/description
         """
-        stmt = select(self.model).where(self.model.owner_id == owner_id)
+        stmt = self._select_theme_out().where(Theme.owner_id == owner_id)
 
         if only_ready:
             stmt = stmt.where(self.model.is_ready.is_(True))
@@ -72,7 +106,9 @@ class ThemeRepository(BaseRepository[Theme]):
             stmt = stmt.order_by(self.model.id.asc())
 
         stmt = stmt.offset(offset).limit(limit)
-        return self.session.exec(stmt).all()
+        
+        rows = self.session.exec(stmt).all()
+        return self._rows_to_theme_out(rows)
 
     def list_public(
         self,
@@ -92,7 +128,7 @@ class ThemeRepository(BaseRepository[Theme]):
         - category_id    : filtre par catégorie
         - q              : recherche insensible à la casse sur name/description
         """
-        stmt = select(self.model).where(self.model.is_public.is_(True))
+        stmt = self._select_theme_out().where(Theme.is_public.is_(True))
 
         if ready_only:
             stmt = stmt.where(self.model.is_ready.is_(True))
@@ -112,7 +148,11 @@ class ThemeRepository(BaseRepository[Theme]):
             stmt = stmt.order_by(self.model.id.asc())
 
         stmt = stmt.offset(offset).limit(limit)
-        return self.session.exec(stmt).all()
+
+        rows = self.session.exec(stmt).all()
+
+        rows = self.session.exec(stmt).all()
+        return self._rows_to_theme_out(rows)
 
     def list_by_category(
         self,
@@ -125,7 +165,7 @@ class ThemeRepository(BaseRepository[Theme]):
         newest_first: bool = True,
     ) -> Sequence[Theme]:
         """Liste des thèmes d'une catégorie, avec filtres simples."""
-        stmt = select(self.model).where(self.model.category_id == category_id)
+        stmt = self._select_theme_out().where(Theme.category_id == category_id)
 
         if only_public:
             stmt = stmt.where(self.model.is_public.is_(True))
@@ -138,7 +178,9 @@ class ThemeRepository(BaseRepository[Theme]):
             stmt = stmt.order_by(self.model.id.asc())
 
         stmt = stmt.offset(offset).limit(limit)
-        return self.session.exec(stmt).all()
+        
+        rows = self.session.exec(stmt).all()
+        return self._rows_to_theme_out(rows)
 
     # ---------- EXISTENCE / COMPTEURS ----------
 
