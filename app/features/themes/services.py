@@ -3,8 +3,13 @@ from sqlmodel import select
 
 from app.db.repositories.themes import ThemeRepository
 from app.db.repositories.images import ImageRepository
+from app.db.repositories.categories import CategoryRepository
+
 from app.db.models.themes import Theme
-from app.features.themes.schemas import ThemeCreateIn, ThemeUpdateIn
+from app.db.models.categories import Category
+
+from app.features.themes.schemas import ThemeCreateIn, ThemeUpdateIn, CategoryPublic, CategoryPublicList
+
 from app.features.media.services import ImageService
 
 class PermissionError(Exception):
@@ -219,3 +224,40 @@ class ThemeService:
             return
         self._assert_can_edit(user_id, is_admin, theme)
         self.repo.delete(theme)
+
+class CategoryService:
+    """
+    Service métier pour Category.
+    - Ne fait PAS d'accès DB direct : passe par CategoryRepository.
+    - Fournit les helpers nécessaires aux autres services (ex: ThemeService).
+    """
+
+    def __init__(self, repo: CategoryRepository):
+        self.repo = repo
+
+    def get_one(self, category_id: int) -> Optional[Category]:
+        return self.repo.get(category_id)
+
+    def assert_exists(self, category_id: Optional[int]) -> None:
+        if category_id is None:
+            return
+        if not self.get_one(category_id):
+            raise LookupError("Category not found.")
+        
+    def list_public(self) -> CategoryPublicList:
+        """
+        Retourne la liste des catégories avec la couleur normalisée en hexa (#RRGGBB).
+        """
+        rows = self.repo.list_with_colors(order_by_name=True)
+
+        items = []
+        for category_id, category_name, hex_code in rows:
+            items.append(
+                CategoryPublic(
+                    id=category_id,
+                    name=category_name,
+                    color=hex_code,
+                )
+            )
+
+        return CategoryPublicList(items=items)

@@ -1,9 +1,7 @@
 from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel, Field as PydField
-
-
-# ---------- IN / UPDATE ----------
+from typing import List
 
 class ThemeCreateIn(BaseModel):
     name: str = PydField(..., description="Nom du thème")
@@ -17,6 +15,19 @@ class ThemeCreateIn(BaseModel):
     # admin uniquement : créer pour un autre owner
     owner_id: Optional[int] = None
 
+class ThemeCreateOut(BaseModel):
+    id: int
+    name: str
+    description: Optional[str]
+    image_id: Optional[int]
+    category_id: Optional[int]
+    owner_id: int
+    is_public: bool
+    is_ready: bool
+    valid_admin: bool
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
 
 class ThemeUpdateIn(BaseModel):
     name: Optional[str] = None
@@ -29,9 +40,6 @@ class ThemeUpdateIn(BaseModel):
     valid_admin: Optional[bool] = None
     # admin uniquement
     owner_id: Optional[int] = None
-
-
-# ---------- OUT ----------
 
 class ThemeOut(BaseModel):
     id: int
@@ -57,3 +65,11 @@ class ThemeOut(BaseModel):
 class ThemeWithSignedUrlOut(ThemeOut):
     image_signed_url: Optional[str] = None
     image_signed_expires_in: Optional[int] = None
+
+class CategoryPublic(BaseModel):
+    id: int
+    name: str = PydField(..., examples=["Sécurité incendie"])
+    color: str = PydField(..., examples=["#FF4D4F"])
+
+class CategoryPublicList(BaseModel):
+    items: List[CategoryPublic]

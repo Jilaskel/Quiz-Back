@@ -6,11 +6,12 @@ from app.api.v1.dependencies import (
     get_access_token_from_bearer,
     get_auth_service,
     get_theme_service,
+    get_category_service
 )
 from app.features.authentication.services import AuthService
 # from app.features.users.schemas import UserOut  # pour typer l'objet retourné par auth.get_current_user si besoin
-from app.features.themes.schemas import ThemeOut, ThemeCreateIn, ThemeUpdateIn, ThemeWithSignedUrlOut
-from app.features.themes.services import ThemeService, PermissionError
+from app.features.themes.schemas import ThemeOut, ThemeCreateIn, ThemeUpdateIn, ThemeWithSignedUrlOut, ThemeCreateOut, CategoryPublicList
+from app.features.themes.services import ThemeService, PermissionError, CategoryService
 
 router = APIRouter(
     prefix="/themes",
@@ -82,6 +83,16 @@ def list_public(
     # public: pas d’auth → URL seulement si (public & validé)
     return _enrich_with_signed(themes, svc=svc, user_ctx=None)
 
+@router.get(
+    "/categories",
+    summary="Lister les catégories (public) avec leur couleur",
+    response_model=CategoryPublicList,
+)
+def list_categories(
+    category_svc: CategoryService = Depends(get_category_service),
+) -> CategoryPublicList:
+    return category_svc.list_public()
+    
 # -----------------------------
 # List mine (owner)
 # -----------------------------
@@ -202,7 +213,7 @@ def get_one(
     "",
     summary="Créer un thème",
     status_code=status.HTTP_201_CREATED,
-    response_model=ThemeOut,
+    response_model=ThemeCreateOut,
 )
 def create(
     payload: ThemeCreateIn,

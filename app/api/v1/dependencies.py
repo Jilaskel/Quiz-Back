@@ -33,7 +33,9 @@ from app.db.repositories.images import ImageRepository
 from app.features.media.services import ImageService, ImageAccessService
 
 from app.db.repositories.themes import ThemeRepository
-from app.features.themes.services import ThemeService
+from app.features.themes.services import ThemeService, CategoryService
+
+from app.db.repositories.categories import CategoryRepository
 
 from app.security.tokens import JWTSettings
 from app.core.config import jwt_settings
@@ -103,6 +105,12 @@ def get_theme_service(
     # ✅ toutes les dépendances injectées via la signature (FastAPI les résout)
     return ThemeService(repo=theme_repo, image_repo=image_repo, image_svc=image_svc)
 
+# -----------------------------
+# Category service
+# -----------------------------
+def get_category_service(db: Session = Depends(get_session)) -> CategoryService:
+    repo = CategoryRepository(db)
+    return CategoryService(repo)
 
 # -----------------------------
 # Authentication data
