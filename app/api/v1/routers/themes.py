@@ -10,7 +10,16 @@ from app.api.v1.dependencies import (
 )
 from app.features.authentication.services import AuthService
 # from app.features.users.schemas import UserOut  # pour typer l'objet retourné par auth.get_current_user si besoin
-from app.features.themes.schemas import ThemeOut, ThemeCreateIn, ThemeUpdateIn, ThemeWithSignedUrlOut, ThemeCreateOut, CategoryPublicList
+from app.features.themes.schemas import (
+    ThemeCreateIn, 
+    ThemeUpdateIn, 
+    ThemeOut, 
+    ThemeJoinOut, 
+    ThemeJoinWithSignedUrlOut, 
+    ThemeCreateOut, 
+    CategoryPublicList, 
+    ThemeWithSignedUrlOut
+)
 from app.features.themes.services import ThemeService, PermissionError, CategoryService
 
 router = APIRouter(
@@ -31,16 +40,16 @@ def _get_user_ctx_or_none(
     return (user.id, getattr(user, "admin", False))
 
 def _enrich_with_signed(
-    themes: List[ThemeOut],
+    themes: List[ThemeJoinOut],
     *,
     svc: ThemeService,
     user_ctx: Optional[Tuple[int, bool]],
-) -> List[ThemeWithSignedUrlOut]:
-    enriched: List[ThemeWithSignedUrlOut] = []
+) -> List[ThemeJoinWithSignedUrlOut]:
+    enriched: List[ThemeJoinWithSignedUrlOut] = []
     for t in themes:
         signed = svc._signed_url_for_theme(t, user_ctx)
         enriched.append(
-            ThemeWithSignedUrlOut(
+            ThemeJoinWithSignedUrlOut(
                 **t.model_dump(),  # type: ignore
                 image_signed_url=(signed["url"] if signed else None),
                 image_signed_expires_in=(signed["expires_in"] if signed else None),
@@ -54,7 +63,7 @@ def _enrich_with_signed(
 @router.get(
     "/public",
     summary="Lister les thèmes publics",
-    response_model=List[ThemeWithSignedUrlOut],
+    response_model=List[ThemeJoinWithSignedUrlOut],
 )
 def list_public(
     offset: int = Query(0, ge=0),
@@ -79,7 +88,7 @@ def list_public(
 
     if not with_signed_url:
         # on “cast” simplement vers le schéma superset
-        return [ThemeWithSignedUrlOut(**t.model_dump()) for t in themes]  # type: ignore
+        return [ThemeJoinWithSignedUrlOut(**t.model_dump()) for t in themes]  # type: ignore
     # public: pas d’auth → URL seulement si (public & validé)
     return _enrich_with_signed(themes, svc=svc, user_ctx=None)
 
@@ -92,14 +101,14 @@ def list_categories(
     category_svc: CategoryService = Depends(get_category_service),
 ) -> CategoryPublicList:
     return category_svc.list_public()
-    
+
 # -----------------------------
 # List mine (owner)
 # -----------------------------
 @router.get(
     "/me",
     summary="Lister mes thèmes",
-    response_model=List[ThemeWithSignedUrlOut],
+    response_model=List[ThemeJoinWithSignedUrlOut],
 )
 def list_mine(
     offset: int = Query(0, ge=0),
@@ -129,7 +138,7 @@ def list_mine(
         newest_first=newest_first,
     )
     if not with_signed_url:
-        return [ThemeWithSignedUrlOut(**t.model_dump()) for t in themes]  # type: ignore
+        return [ThemeJoinWithSignedUrlOut(**t.model_dump()) for t in themes]  # type: ignore
     # owner: peut obtenir l’URL de ses thèmes
     return _enrich_with_signed(themes, svc=svc, user_ctx=(user.id, getattr(user, "admin", False)))
 
@@ -141,7 +150,7 @@ def list_mine(
 @router.get(
     "",
     summary="Lister tous les thèmes (admin)",
-    response_model=List[ThemeWithSignedUrlOut],
+    response_model=List[ThemeJoinWithSignedUrlOut],
 )
 def list_all_admin(
     offset: int = Query(0, ge=0),
@@ -166,7 +175,7 @@ def list_all_admin(
         newest_first=newest_first,
     )
     if not with_signed_url:
-        return [ThemeWithSignedUrlOut(**t.model_dump()) for t in themes]  # type: ignore
+        return [ThemeJoinWithSignedUrlOut(**t.model_dump()) for t in themes]  # type: ignore
     # admin: URL signée pour tous les thèmes
     return _enrich_with_signed(themes, svc=svc, user_ctx=(user.id, True))
 

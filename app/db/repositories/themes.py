@@ -7,7 +7,7 @@ from app.db.models.themes import Theme
 from app.db.models.users import User
 from app.db.models.categories import Category
 from app.db.models.colors import Color
-from app.features.themes.schemas import ThemeOut
+from app.features.themes.schemas import ThemeJoinOut
 
 class ThemeRepository(BaseRepository[Theme]):
     """CRUD Themes + requêtes spécifiques."""
@@ -40,8 +40,8 @@ class ThemeRepository(BaseRepository[Theme]):
             .join(Color, Color.id == Category.color_id, isouter=True)
         )
 
-    def _rows_to_theme_out(self, rows) -> list[ThemeOut]:
-        return [ThemeOut(**dict(r._mapping)) for r in rows]
+    def _rows_to_theme_out(self, rows) -> list[ThemeJoinOut]:
+        return [ThemeJoinOut(**dict(r._mapping)) for r in rows]
 
     # ---------- GETTERS SPÉCIFIQUES ----------
 

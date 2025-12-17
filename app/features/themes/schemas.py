@@ -45,24 +45,25 @@ class ThemeOut(BaseModel):
     id: int
     name: str
     description: Optional[str]
-
     image_id: Optional[int]
-
     category_id: Optional[int]
-    category_name: Optional[str]
-    category_color_hex: Optional[str]
-
     owner_id: int
-    owner_username: str
-
     is_public: bool
     is_ready: bool
     valid_admin: bool
-
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
+class ThemeJoinOut(ThemeOut):
+    category_name: Optional[str]
+    category_color_hex: Optional[str]
+    owner_username: str
+
 class ThemeWithSignedUrlOut(ThemeOut):
+    image_signed_url: Optional[str] = None
+    image_signed_expires_in: Optional[int] = None
+
+class ThemeJoinWithSignedUrlOut(ThemeJoinOut):
     image_signed_url: Optional[str] = None
     image_signed_expires_in: Optional[int] = None
 
