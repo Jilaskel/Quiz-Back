@@ -68,28 +68,28 @@ class ThemeRepository(BaseRepository[Theme]):
         *,
         offset: int = 0,
         limit: int = 100,
-        only_ready: bool = False,
-        only_public: bool = False,
-        only_validated: bool = False,
+        ready_only: bool = False,
+        public_only: bool = False,
+        validated_only: bool = False,
         category_id: Optional[int] = None,
         q: Optional[str] = None,
         newest_first: bool = True,
     ) -> Sequence[Theme]:
         """
         Liste paginée des thèmes d'un propriétaire avec filtres optionnels.
-        - only_ready     : limite aux thèmes prêts
-        - only_public    : limite aux thèmes publics
-        - only_validated : limite aux thèmes validés admin
+        - ready_only     : limite aux thèmes prêts
+        - public_only    : limite aux thèmes publics
+        - validated_only : limite aux thèmes validés admin
         - category_id    : filtre par catégorie
         - q              : recherche insensible à la casse sur name/description
         """
         stmt = self._select_theme_out().where(Theme.owner_id == owner_id)
 
-        if only_ready:
+        if ready_only:
             stmt = stmt.where(self.model.is_ready.is_(True))
-        if only_public:
+        if public_only:
             stmt = stmt.where(self.model.is_public.is_(True))
-        if only_validated:
+        if validated_only:
             stmt = stmt.where(self.model.valid_admin.is_(True))
         if category_id is not None:
             stmt = stmt.where(self.model.category_id == category_id)
