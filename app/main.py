@@ -38,7 +38,7 @@ app = FastAPI(
     # contact={"name": "API team", "email": "api@example.com"},
     # license_info={"name": "MIT"},
     openapi_tags=[
-        {"name": "users", "description": "Gestion de Utilisateurs"},
+        # {"name": "users", "description": "Gestion de Utilisateurs"},
         {"name": "auth", "description": "Opérations liées à l'authentification"},
         {"name": "images", "description": "Opérations liées au stockage des images"},
         {"name": "audios", "description": "Opérations liées au stockage des audios"},
@@ -55,7 +55,7 @@ app.add_middleware(
 )
 
 # Routers
-app.include_router(users.router, prefix="/api/v1")
+# app.include_router(users.router, prefix="/api/v1")
 app.include_router(authentication.router, prefix="/api/v1")
 app.include_router(images.router, prefix="/api/v1")
 app.include_router(themes.router, prefix="/api/v1")

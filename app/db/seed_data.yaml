@@ -580,7 +580,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
-    questions_json_path: "app/db/docs/themes/LeSeigneurDesAnneaux/questions.json"
+    questions_json_path: "app/db/docs/themes/SeigneurDesAnneaux/questions.json"
 
   - key: slack
     name: "Slack"
