@@ -11,7 +11,7 @@ from app.db.models.categories import Category
 from app.db.models.questions import Question
 
 from app.features.themes.schemas import (
-    ThemeCreateIn, ThemeUpdateIn, 
+    ThemeCreateIn, ThemeUpdateWithQuestionsIn, 
     CategoryPublic, CategoryPublicList, 
     ThemeJoinWithSignedUrlOut, ThemeDetailJoinWithSignedUrlOut
 )
@@ -263,25 +263,75 @@ class ThemeService:
             session.rollback()
             raise
 
-    def update(self, theme_id: int, payload: ThemeUpdateIn, *, user_id: int, is_admin: bool) -> Theme:
+    def update(self, theme_id: int, payload: ThemeUpdateWithQuestionsIn, *, user_id: int, is_admin: bool) -> ThemeDetailJoinWithSignedUrlOut:
         theme = self.repo.get(theme_id)
         if not theme:
             raise LookupError("Theme not found.")
         self._assert_can_edit(user_id, is_admin, theme)
 
+        session = self.repo.session
+
+        # --- 1) préparer les changements thème (sans la clé questions) ---
         changes = payload.model_dump(exclude_unset=True)
+        questions_in = changes.pop("questions", None)
+
+        # questions obligatoire (selon ton besoin). Si tu veux optionnel, gère None différemment.
+        if questions_in is None:
+            raise ValueError("Field 'questions' is required.")
+
         # filtrer champs réservés admin si non-admin
         if not is_admin:
             changes.pop("valid_admin", None)
-            # un user ne peut pas réassigner le owner
             changes.pop("owner_id", None)
 
         # si admin veut changer le owner
         if is_admin and "owner_id" in changes and changes["owner_id"] is None:
-            # si explicitement None -> on l'ignore pour éviter d'orpheliner
             changes.pop("owner_id")
 
-        return self.repo.update(theme, **changes)
+        # --- 2) construire les nouvelles entités Question ---
+        new_questions: List[Question] = []
+        for idx, q_in in enumerate(payload.questions):
+            # q_in est un QuestionUpdateIn (tous champs optionnels) => on impose des minima
+            if not q_in.question or not q_in.answer:
+                raise ValueError(
+                    f"Each question must provide 'question' and 'answer'. Invalid item at index {idx}."
+                )
+
+            new_questions.append(
+                Question(
+                    theme_id=theme_id,
+                    question=q_in.question,
+                    answer=q_in.answer,
+                    points=(q_in.points if q_in.points is not None else 1),
+                    question_image_id=q_in.question_image_id,
+                    answer_image_id=q_in.answer_image_id,
+                    question_audio_id=q_in.question_audio_id,
+                    answer_audio_id=q_in.answer_audio_id,
+                    question_video_id=q_in.question_video_id,
+                    answer_video_id=q_in.answer_video_id,
+                )
+            )
+
+        # --- 3) transaction globale ---
+        try:
+            # 3.1 supprimer toutes les questions existantes
+            self.question_repo.delete_by_theme(theme_id, commit=False)
+
+            # 3.2 insérer les nouvelles questions
+            if new_questions:
+                self.question_repo.create_many(new_questions, commit=False)
+
+            # 3.3 update du thème
+            self.repo.update(theme, commit=False, **changes)
+
+            # 3.4 commit unique
+            session.commit()
+            session.refresh(theme)
+            return self.get_one_detail(theme_id, user_ctx=(user_id, is_admin), with_signed_url=True)
+
+        except Exception:
+            session.rollback()
+            raise
 
     def delete(self, theme_id: int, *, user_id: int, is_admin: bool) -> None:
         theme = self.repo.get(theme_id)

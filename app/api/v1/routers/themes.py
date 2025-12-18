@@ -13,6 +13,7 @@ from app.features.authentication.services import AuthService
 from app.features.themes.schemas import (
     ThemeCreateIn, 
     ThemeUpdateIn, 
+    ThemeUpdateWithQuestionsIn,
     ThemeOut, 
     ThemeJoinOut, 
     ThemeCreateOut, 
@@ -231,12 +232,12 @@ def create(
 # -----------------------------
 @router.patch(
     "/{theme_id}",
-    summary="Mettre à jour un thème",
-    response_model=ThemeOut,
+    summary="Mettre à jour un thème (avec ses questions)",
+    response_model=ThemeDetailJoinWithSignedUrlOut,
 )
 def update(
     theme_id: int,
-    payload: ThemeUpdateIn,
+    payload: ThemeUpdateWithQuestionsIn,
     access_token: str = Depends(get_access_token_from_bearer),
     auth_svc: AuthService = Depends(get_auth_service),
     svc: ThemeService = Depends(get_theme_service),
