@@ -30,7 +30,9 @@ from app.db.repositories.refresh_tokens import RefreshTokenRepository
 from app.features.authentication.services import AuthService
 
 from app.db.repositories.images import ImageRepository
-from app.features.media.services import ImageService, ImageAccessService
+from app.db.repositories.audios import AudioRepository
+from app.db.repositories.videos import VideoRepository
+from app.features.media.services import ImageService, ImageAccessService, AudioService, AudioAccessService, VideoService, VideoAccessService
 
 from app.db.repositories.themes import ThemeRepository
 from app.features.themes.services import ThemeService, CategoryService
@@ -75,6 +77,11 @@ def get_image_repository(session: Session = Depends(get_session)) -> ImageReposi
 def get_theme_repository(session: Session = Depends(get_session)) -> ThemeRepository:
     return ThemeRepository(session)
 
+def get_audio_repository(session: Session = Depends(get_session)) -> AudioRepository:
+    return AudioRepository(session)
+
+def get_video_repository(session: Session = Depends(get_session)) -> VideoRepository:
+    return VideoRepository(session)
 
 # -----------------------------
 # Media services
@@ -93,6 +100,27 @@ def get_image_access_service(
     # ✅ wrapper “policy-aware” Option A
     return ImageAccessService(image_svc=img_svc, image_repo=image_repo, theme_repo=theme_repo)
 
+def get_audio_service(
+    audio_repo: AudioRepository = Depends(get_audio_repository),
+) -> AudioService:
+    return AudioService(repo=audio_repo)
+
+def get_audio_access_service(
+    audio_svc: AudioService = Depends(get_audio_service),
+    audio_repo: AudioRepository = Depends(get_audio_repository),
+) -> AudioAccessService:
+    return AudioAccessService(audio_svc=audio_svc, audio_repo=audio_repo)
+
+def get_video_service(
+    video_repo: VideoRepository = Depends(get_video_repository),
+) -> VideoService:
+    return VideoService(repo=video_repo)
+
+def get_video_access_service(
+    video_svc: VideoService = Depends(get_video_service),
+    video_repo: VideoRepository = Depends(get_video_repository),
+) -> VideoAccessService:
+    return VideoAccessService(video_svc=video_svc, video_repo=video_repo)
 
 # -----------------------------
 # Theme service

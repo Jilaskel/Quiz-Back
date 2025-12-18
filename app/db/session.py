@@ -21,6 +21,8 @@ from sqlalchemy.engine import Engine
 # Import all models for creating all tables
 from app.db.models.users import User
 from app.db.models.images import Image
+from app.db.models.audios import Audio
+from app.db.models.videos import Video
 from app.db.models.colors import Color
 from app.db.models.categories import Category
 from app.db.models.refresh_tokens import RefreshToken

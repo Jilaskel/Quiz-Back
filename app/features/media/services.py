@@ -3,10 +3,22 @@ from fastapi import UploadFile, HTTPException, status
 import io
 
 from app.core.config import settings
+
 from app.db.repositories.images import ImageRepository
+from app.db.repositories.audios import AudioRepository
+from app.db.repositories.videos import VideoRepository
+
 from app.db.repositories.themes import ThemeRepository
+
 from app.utils.s3 import make_s3_internal, make_s3_public, presign_get_url
-from app.utils.images import read_and_validate, build_object_key
+
+from app.utils.media_files import (
+    validate_bytes,
+    build_object_key,
+    ALLOWED_IMAGE_MIME,
+    ALLOWED_AUDIO_MIME,
+    ALLOWED_VIDEO_MIME,
+)
 
 UserCtx = Optional[Tuple[int, bool]]  # (user_id, is_admin)
 
@@ -31,11 +43,15 @@ class ImageService:
     async def upload(self, file: UploadFile, *, owner_id: Optional[int]) -> dict:
         raw = await file.read()
         try:
-            mime, ext, size, sha = read_and_validate(raw, max_mb=self.settings.MAX_UPLOAD_MB)
+            mime, ext, size, sha = validate_bytes(
+                raw,
+                max_mb=self.settings.MAX_UPLOAD_MB,
+                allowed_mime=ALLOWED_IMAGE_MIME,
+            )
         except ValueError as e:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-        key = build_object_key(owner_id, ext)
+        key = build_object_key(prefix="images", owner_id=owner_id, ext_with_dot=ext)
         s3 = self._s3_internal_factory()
         try:
             s3.upload_fileobj(
@@ -150,3 +166,234 @@ class ImageAccessService:
 
         # OK -> suppression via ImageService
         self.image_svc.delete(image_id)
+
+class AudioService:
+    def __init__(
+        self,
+        *,
+        repo: AudioRepository,
+        s3_client_internal_factory: Callable[[], object] = make_s3_internal,
+        s3_client_public_factory: Callable[[], object] = make_s3_public,
+    ):
+        self.repo = repo
+        self._s3_internal_factory = s3_client_internal_factory
+        self._s3_public_factory = s3_client_public_factory
+        self.settings = settings
+
+    async def upload(self, file: UploadFile, *, owner_id: Optional[int]) -> dict:
+        raw = await file.read()
+        try:
+            mime, ext, size, sha = validate_bytes(
+                raw,
+                max_mb=self.settings.MAX_UPLOAD_MB,
+                allowed_mime=ALLOWED_AUDIO_MIME,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+        key = build_object_key(prefix="audios", owner_id=owner_id, ext_with_dot=ext)
+        s3 = self._s3_internal_factory()
+        try:
+            s3.upload_fileobj(
+                Fileobj=io.BytesIO(raw),
+                Bucket=self.settings.S3_BUCKET,
+                Key=key,
+                ExtraArgs={"ContentType": mime, "Metadata": {"sha256": sha}},
+            )
+        except Exception as e:
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Erreur upload MinIO: {e}")
+
+        audio = self.repo.create(
+            object_key=key,
+            bucket=self.settings.S3_BUCKET,
+            mime_type=mime,
+            bytes=size,
+            sha256=sha,
+            status="ready",
+            owner_id=owner_id,
+        )
+        return {"id": audio.id, "key": key, "bytes": size, "mime": mime}
+
+    def signed_get(self, audio_id: str) -> dict:
+        audio = self.repo.get(audio_id)
+        if not audio:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Audio introuvable")
+
+        s3 = self._s3_public_factory()
+        url = presign_get_url(
+            s3,
+            bucket=audio.bucket,
+            key=audio.object_key,
+            content_type=audio.mime_type,
+            ttl=self.settings.PRESIGN_TTL_SECONDS,
+        )
+        return {"id": audio_id, "url": url, "expires_in": self.settings.PRESIGN_TTL_SECONDS}
+
+    def delete(self, audio_id: str) -> None:
+        audio = self.repo.get(audio_id)
+        if not audio:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Audio introuvable")
+
+        s3 = self._s3_internal_factory()
+        try:
+            s3.delete_object(Bucket=audio.bucket, Key=audio.object_key)
+        except Exception as e:
+            self.repo.delete(audio)
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Erreur MinIO: {e}")
+
+        self.repo.delete(audio)
+
+
+class AudioAccessService:
+    """
+    Policy d'accès (version simple) :
+    - Token obligatoire
+    - owner ou admin
+    """
+    def __init__(self, audio_svc: AudioService, audio_repo: AudioRepository):
+        self.audio_svc = audio_svc
+        self.audio_repo = audio_repo
+
+    def signed_get_authorized(self, audio_id: str, user_ctx: UserCtx) -> dict:
+        if user_ctx is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
+
+        user_id, is_admin = user_ctx
+        audio = self.audio_repo.get(audio_id)
+        if not audio:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Audio introuvable")
+
+        if not is_admin and getattr(audio, "owner_id", None) != user_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+        return self.audio_svc.signed_get(audio_id)
+
+    def delete_authorized(self, audio_id: str, user_ctx: UserCtx) -> None:
+        if user_ctx is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
+
+        user_id, is_admin = user_ctx
+        audio = self.audio_repo.get(audio_id)
+        if not audio:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Audio introuvable")
+
+        if not is_admin and getattr(audio, "owner_id", None) != user_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+        self.audio_svc.delete(audio_id)
+
+
+class VideoService:
+    def __init__(
+        self,
+        *,
+        repo: VideoRepository,
+        s3_client_internal_factory: Callable[[], object] = make_s3_internal,
+        s3_client_public_factory: Callable[[], object] = make_s3_public,
+    ):
+        self.repo = repo
+        self._s3_internal_factory = s3_client_internal_factory
+        self._s3_public_factory = s3_client_public_factory
+        self.settings = settings
+
+    async def upload(self, file: UploadFile, *, owner_id: Optional[int]) -> dict:
+        raw = await file.read()
+        try:
+            mime, ext, size, sha = validate_bytes(
+                raw,
+                max_mb=self.settings.MAX_UPLOAD_MB,
+                allowed_mime=ALLOWED_VIDEO_MIME,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+        key = build_object_key(prefix="videos", owner_id=owner_id, ext_with_dot=ext)
+        s3 = self._s3_internal_factory()
+        try:
+            s3.upload_fileobj(
+                Fileobj=io.BytesIO(raw),
+                Bucket=self.settings.S3_BUCKET,
+                Key=key,
+                ExtraArgs={"ContentType": mime, "Metadata": {"sha256": sha}},
+            )
+        except Exception as e:
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Erreur upload MinIO: {e}")
+
+        video = self.repo.create(
+            object_key=key,
+            bucket=self.settings.S3_BUCKET,
+            mime_type=mime,
+            bytes=size,
+            sha256=sha,
+            status="ready",
+            owner_id=owner_id,
+        )
+        return {"id": video.id, "key": key, "bytes": size, "mime": mime}
+
+    def signed_get(self, video_id: str) -> dict:
+        video = self.repo.get(video_id)
+        if not video:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vidéo introuvable")
+
+        s3 = self._s3_public_factory()
+        url = presign_get_url(
+            s3,
+            bucket=video.bucket,
+            key=video.object_key,
+            content_type=video.mime_type,
+            ttl=self.settings.PRESIGN_TTL_SECONDS,
+        )
+        return {"id": video_id, "url": url, "expires_in": self.settings.PRESIGN_TTL_SECONDS}
+
+    def delete(self, video_id: str) -> None:
+        video = self.repo.get(video_id)
+        if not video:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vidéo introuvable")
+
+        s3 = self._s3_internal_factory()
+        try:
+            s3.delete_object(Bucket=video.bucket, Key=video.object_key)
+        except Exception as e:
+            self.repo.delete(video)
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Erreur MinIO: {e}")
+
+        self.repo.delete(video)
+
+
+class VideoAccessService:
+    """
+    Policy d'accès (version simple) :
+    - Token obligatoire
+    - owner ou admin
+    """
+    def __init__(self, video_svc: VideoService, video_repo: VideoRepository):
+        self.video_svc = video_svc
+        self.video_repo = video_repo
+
+    def signed_get_authorized(self, video_id: str, user_ctx: UserCtx) -> dict:
+        if user_ctx is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
+
+        user_id, is_admin = user_ctx
+        video = self.video_repo.get(video_id)
+        if not video:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vidéo introuvable")
+
+        if not is_admin and getattr(video, "owner_id", None) != user_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+        return self.video_svc.signed_get(video_id)
+
+    def delete_authorized(self, video_id: str, user_ctx: UserCtx) -> None:
+        if user_ctx is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
+
+        user_id, is_admin = user_ctx
+        video = self.video_repo.get(video_id)
+        if not video:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vidéo introuvable")
+
+        if not is_admin and getattr(video, "owner_id", None) != user_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+        self.video_svc.delete(video_id)
