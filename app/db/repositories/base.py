@@ -35,28 +35,47 @@ class BaseRepository(Generic[ModelT]):
 
     # ---------- CREATE ----------
 
-    def create(self, **fields) -> ModelT:
-        """Crée et persiste un nouvel enregistrement."""
+    def create(self, *, commit: bool = True, **fields) -> ModelT:
+        """
+        Crée et persiste un nouvel enregistrement.
+        commit=False permet d'orchestrer une transaction globale au niveau service.
+        """
         entity = self.model(**fields)
         self.session.add(entity)
-        self.session.commit()
-        self.session.refresh(entity)
+        if commit:
+            self.session.commit()
+            self.session.refresh(entity)
+        else:
+            # flush pour obtenir l'ID sans commit (utile pour FKs)
+            self.session.flush()
         return entity
 
     # ---------- UPDATE ----------
 
-    def update(self, entity: ModelT, **changes) -> ModelT:
-        """Met à jour un enregistrement existant."""
+    def update(self, entity: ModelT, *, commit: bool = True, **changes) -> ModelT:
+        """
+        Met à jour un enregistrement existant.
+        commit=False permet d'orchestrer une transaction globale au niveau service.
+        """
         for key, value in changes.items():
             setattr(entity, key, value)
         self.session.add(entity)
-        self.session.commit()
-        self.session.refresh(entity)
+        if commit:
+            self.session.commit()
+            self.session.refresh(entity)
+        else:
+            self.session.flush()
         return entity
 
     # ---------- DELETE ----------
 
-    def delete(self, entity: ModelT) -> None:
-        """Supprime un enregistrement."""
+    def delete(self, entity: ModelT, *, commit: bool = True) -> None:
+        """
+        Supprime un enregistrement.
+        commit=False permet d'orchestrer une transaction globale au niveau service.
+        """
         self.session.delete(entity)
-        self.session.commit()
+        if commit:
+            self.session.commit()
+        else:
+            self.session.flush()

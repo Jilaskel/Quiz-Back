@@ -15,10 +15,11 @@ from app.features.themes.schemas import (
     ThemeUpdateIn, 
     ThemeOut, 
     ThemeJoinOut, 
-    ThemeJoinWithSignedUrlOut, 
     ThemeCreateOut, 
-    CategoryPublicList, 
-    ThemeWithSignedUrlOut
+    ThemeWithSignedUrlOut,
+    ThemeDetailJoinWithSignedUrlOut,
+    ThemeJoinWithSignedUrlOut, 
+    CategoryPublicList,  
 )
 from app.features.themes.services import ThemeService, PermissionError, CategoryService
 
@@ -184,8 +185,8 @@ def list_all_admin(
 # -----------------------------
 @router.get(
     "/{theme_id}",
-    summary="Récupérer un thème",
-    response_model=ThemeWithSignedUrlOut,
+    summary="Récupérer un thème et ses questions",
+    response_model=ThemeDetailJoinWithSignedUrlOut,
     responses={403: {"description": "Forbidden"}},
 )
 def get_one(
@@ -197,23 +198,11 @@ def get_one(
 ):
     user_ctx = _get_user_ctx_or_none(access_token, auth_svc) if access_token else None
     try:
-        t = svc.get_one(theme_id, user_ctx)
+        return svc.get_one_detail(theme_id, user_ctx, with_signed_url=with_signed_url)
     except PermissionError:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     except LookupError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
-
-    # Si on ne veut pas d'URL signée, on renvoie juste les champs du thème
-    if not with_signed_url:
-        # On retourne un modèle identique, mais sans les champs supplémentaires
-        return ThemeWithSignedUrlOut(**t.model_dump())  # type: ignore
-    
-    signed = svc._signed_url_for_theme(t, user_ctx if with_signed_url else None)
-    return ThemeWithSignedUrlOut(
-        **t.model_dump(),  # type: ignore
-        image_signed_url=(signed["url"] if signed else None),
-        image_signed_expires_in=(signed["expires_in"] if signed else None),
-    )
 
 # -----------------------------
 # Create (owner or admin)

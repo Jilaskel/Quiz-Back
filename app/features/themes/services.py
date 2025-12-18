@@ -1,16 +1,23 @@
-from typing import Optional, Sequence, Tuple
+from typing import Optional, Sequence, Tuple, List
 from sqlmodel import select
 
 from app.db.repositories.themes import ThemeRepository
 from app.db.repositories.images import ImageRepository
 from app.db.repositories.categories import CategoryRepository
+from app.db.repositories.questions import QuestionRepository
 
 from app.db.models.themes import Theme
 from app.db.models.categories import Category
+from app.db.models.questions import Question
 
-from app.features.themes.schemas import ThemeCreateIn, ThemeUpdateIn, CategoryPublic, CategoryPublicList
+from app.features.themes.schemas import (
+    ThemeCreateIn, ThemeUpdateIn, 
+    CategoryPublic, CategoryPublicList, 
+    ThemeJoinWithSignedUrlOut, ThemeDetailJoinWithSignedUrlOut
+)
+from app.features.questions.schemas import QuestionJoinWithSignedUrlOut
 
-from app.features.media.services import ImageService
+from app.features.media.services import ImageService, AudioService, VideoService
 
 class PermissionError(Exception):
     pass
@@ -29,11 +36,18 @@ class ThemeService:
         self, 
         repo: ThemeRepository,
         image_repo: ImageRepository,
-        image_svc: ImageService
+        image_svc: ImageService,
+        audio_svc: AudioService,
+        video_svc: VideoService,
+        question_repo: QuestionRepository,
     ):
         self.repo = repo
         self.image_repo = image_repo
         self.image_svc = image_svc
+        self.audio_svc = audio_svc
+        self.video_svc = video_svc
+        
+        self.question_repo = question_repo
 
     # -------- Helpers permissions --------
 
@@ -69,6 +83,20 @@ class ThemeService:
         if not image_id:
             return False
         return self.repo.image_is_publicly_exposable(image_id)
+    
+    # -------- vérifs media d'un thème --------
+    def _can_sign_media_for_theme(self, theme: Theme, user_ctx: Optional[Tuple[int, bool]]) -> bool:
+        """
+        Même règle que pour l'image du thème :
+        - public + valid_admin => OK sans auth
+        - sinon => owner ou admin requis
+        """
+        if theme.is_public and theme.valid_admin:
+            return True
+        if user_ctx is None:
+            return False
+        user_id, is_admin = user_ctx
+        return bool(is_admin) or theme.owner_id == user_id
     
     # --- URL signée contrôlée ---
     def _signed_url_for_theme(
@@ -182,21 +210,58 @@ class ThemeService:
     # -------- Writes --------
 
     def create(self, payload: ThemeCreateIn, *, user_id: int, is_admin: bool) -> Theme:
-        # Admin peut forcer owner_id & valid_admin; owner normal ne peut pas
+        """
+        Crée un thème ET crée 9 questions associées dans la table question.
+        Le tout dans une seule transaction (commit unique).
+
+        Admin peut forcer owner_id & valid_admin; owner normal ne peut pas
+        """
         owner_id = payload.owner_id if is_admin and payload.owner_id else user_id
         valid_admin = bool(payload.valid_admin) if is_admin and payload.valid_admin is not None else False
 
-        created = self.repo.create(
-            name=payload.name,
-            description=payload.description,
-            image_id=payload.image_id,
-            category_id=payload.category_id,
-            is_public=payload.is_public,
-            is_ready=payload.is_ready,
-            valid_admin=valid_admin,
-            owner_id=owner_id,
-        )
-        return created
+        session = self.repo.session
+
+        try:
+            # 1) créer le thème sans commit (flush pour obtenir l'ID)
+            created = self.repo.create(
+                name=payload.name,
+                description=payload.description,
+                image_id=payload.image_id,
+                category_id=payload.category_id,
+                is_public=payload.is_public,
+                is_ready=payload.is_ready,
+                valid_admin=valid_admin,
+                owner_id=owner_id,
+                commit=False
+            )
+
+            # 2) créer 9 questions associées (valeurs par défaut)
+            questions: List[Question] = [
+                Question(
+                    theme_id=created.id,
+                    question=f"Question pour {points} points : Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Maecenas porttitor congue massa ?",
+                    answer="Fusce posuere, magna sed pulvinar ultricies.",
+                    points=points,
+                    question_image_id=None,
+                    answer_image_id=None,
+                    question_audio_id=None,
+                    answer_audio_id=None,
+                    question_video_id=None,
+                    answer_video_id=None,
+                )
+                for points in range(2, 11)
+            ]
+            self.question_repo.create_many(questions, commit=False)
+
+            # 3) commit unique
+            session.commit()
+            session.refresh(created)
+
+            return created
+
+        except Exception:
+            session.rollback()
+            raise
 
     def update(self, theme_id: int, payload: ThemeUpdateIn, *, user_id: int, is_admin: bool) -> Theme:
         theme = self.repo.get(theme_id)
@@ -224,6 +289,114 @@ class ThemeService:
             return
         self._assert_can_edit(user_id, is_admin, theme)
         self.repo.delete(theme)
+
+    def get_one_detail(
+        self,
+        theme_id: int,
+        user_ctx: Optional[Tuple[int, bool]],
+        *,
+        with_signed_url: bool,
+    ) -> ThemeDetailJoinWithSignedUrlOut:
+        # 1) Theme ORM pour permissions
+        theme = self.repo.get(theme_id)
+        if not theme:
+            raise LookupError("Theme not found.")
+        self._assert_can_view(user_ctx, theme)
+
+        # 2) projection join (category/color/owner)
+        join = self.repo.get_join_by_id(theme_id)
+        if not join:
+            raise LookupError("Theme not found.")
+
+        # 3) questions
+        questions = self.question_repo.list_by_theme(theme_id, offset=0, limit=500, newest_first=False)
+
+        # 4) autorisation de signer
+        allow_sign = with_signed_url and self._can_sign_media_for_theme(theme, user_ctx) # probablement overkill mais au cas où on re-vérifie
+
+        # 5) signed url thème image (si demandé et autorisé)
+        theme_signed_url = None
+        theme_signed_expires = None
+        if allow_sign and theme.image_id:
+            data = self.image_svc.signed_get(str(theme.image_id))
+            theme_signed_url = data.get("url")
+            theme_signed_expires = data.get("expires_in")
+
+        # 6) enrichir questions
+        q_out: List[QuestionJoinWithSignedUrlOut] = []
+        for q in questions:
+            # images
+            qi_url = qi_exp = ai_url = ai_exp = None
+            if allow_sign and q.question_image_id:
+                d = self.image_svc.signed_get(str(q.question_image_id))
+                qi_url, qi_exp = d.get("url"), d.get("expires_in")
+            if allow_sign and q.answer_image_id:
+                d = self.image_svc.signed_get(str(q.answer_image_id))
+                ai_url, ai_exp = d.get("url"), d.get("expires_in")
+
+            # audios
+            qa_url = qa_exp = aa_url = aa_exp = None
+            if allow_sign and q.question_audio_id:
+                d = self.audio_svc.signed_get(str(q.question_audio_id))
+                qa_url, qa_exp = d.get("url"), d.get("expires_in")
+            if allow_sign and q.answer_audio_id:
+                d = self.audio_svc.signed_get(str(q.answer_audio_id))
+                aa_url, aa_exp = d.get("url"), d.get("expires_in")
+
+            # videos
+            qv_url = qv_exp = av_url = av_exp = None
+            if allow_sign and q.question_video_id:
+                d = self.video_svc.signed_get(str(q.question_video_id))
+                qv_url, qv_exp = d.get("url"), d.get("expires_in")
+            if allow_sign and q.answer_video_id:
+                d = self.video_svc.signed_get(str(q.answer_video_id))
+                av_url, av_exp = d.get("url"), d.get("expires_in")
+
+            q_out.append(
+                QuestionJoinWithSignedUrlOut(
+                    id=q.id,
+                    theme_id=q.theme_id,
+                    question=q.question,
+                    answer=q.answer,
+                    points=q.points,
+                    question_image_id=q.question_image_id,
+                    answer_image_id=q.answer_image_id,
+                    question_audio_id=q.question_audio_id,
+                    answer_audio_id=q.answer_audio_id,
+                    question_video_id=q.question_video_id,
+                    answer_video_id=q.answer_video_id,
+
+                    question_image_signed_url=qi_url,
+                    question_image_signed_expires_in=qi_exp,
+                    answer_image_signed_url=ai_url,
+                    answer_image_signed_expires_in=ai_exp,
+
+                    question_audio_signed_url=qa_url,
+                    question_audio_signed_expires_in=qa_exp,
+                    answer_audio_signed_url=aa_url,
+                    answer_audio_signed_expires_in=aa_exp,
+
+                    question_video_signed_url=qv_url,
+                    question_video_signed_expires_in=qv_exp,
+                    answer_video_signed_url=av_url,
+                    answer_video_signed_expires_in=av_exp,
+
+                    created_at=getattr(q, "created_at", None),
+                    updated_at=getattr(q, "updated_at", None),
+                )
+            )
+
+        # 7) construire retour ThemeJoinWithSignedUrlOut + questions
+        base = ThemeJoinWithSignedUrlOut(
+            **join.model_dump(),  # type: ignore
+            image_signed_url=theme_signed_url,
+            image_signed_expires_in=theme_signed_expires,
+        )
+
+        return ThemeDetailJoinWithSignedUrlOut(
+            **base.model_dump(),  # type: ignore
+            questions=q_out,
+        )
 
 class CategoryService:
     """

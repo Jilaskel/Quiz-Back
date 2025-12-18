@@ -27,6 +27,7 @@ from app.db.models.colors import Color
 from app.db.models.categories import Category
 from app.db.models.refresh_tokens import RefreshToken
 from app.db.models.themes import Theme
+from app.db.models.questions import Question
 
 from app.core.config import settings
 

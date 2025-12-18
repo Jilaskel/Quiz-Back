@@ -3,6 +3,8 @@ from datetime import datetime
 from pydantic import BaseModel, Field as PydField
 from typing import List
 
+from app.features.questions.schemas import QuestionJoinWithSignedUrlOut
+
 class ThemeCreateIn(BaseModel):
     name: str = PydField(..., description="Nom du thème")
     description: Optional[str] = None
@@ -74,3 +76,6 @@ class CategoryPublic(BaseModel):
 
 class CategoryPublicList(BaseModel):
     items: List[CategoryPublic]
+
+class ThemeDetailJoinWithSignedUrlOut(ThemeJoinWithSignedUrlOut):
+    questions: List[QuestionJoinWithSignedUrlOut] = []

@@ -32,12 +32,19 @@ from app.features.authentication.services import AuthService
 from app.db.repositories.images import ImageRepository
 from app.db.repositories.audios import AudioRepository
 from app.db.repositories.videos import VideoRepository
-from app.features.media.services import ImageService, ImageAccessService, AudioService, AudioAccessService, VideoService, VideoAccessService
+from app.features.media.services import (
+    ImageService, ImageAccessService, 
+    AudioService, AudioAccessService, 
+    VideoService, VideoAccessService
+)
 
 from app.db.repositories.themes import ThemeRepository
 from app.features.themes.services import ThemeService, CategoryService
 
 from app.db.repositories.categories import CategoryRepository
+
+from app.db.repositories.questions import QuestionRepository
+from app.features.questions.services import QuestionService
 
 from app.security.tokens import JWTSettings
 from app.core.config import jwt_settings
@@ -83,6 +90,9 @@ def get_audio_repository(session: Session = Depends(get_session)) -> AudioReposi
 def get_video_repository(session: Session = Depends(get_session)) -> VideoRepository:
     return VideoRepository(session)
 
+def get_question_repository(session: Session = Depends(get_session)) -> QuestionRepository:
+    return QuestionRepository(session)
+
 # -----------------------------
 # Media services
 # -----------------------------
@@ -123,15 +133,33 @@ def get_video_access_service(
     return VideoAccessService(video_svc=video_svc, video_repo=video_repo)
 
 # -----------------------------
+# Question service
+# -----------------------------
+def get_question_service(
+    question_repo: QuestionRepository = Depends(get_question_repository),
+) -> QuestionService:
+    return QuestionService(repo=question_repo)
+
+# -----------------------------
 # Theme service
 # -----------------------------
 def get_theme_service(
     theme_repo: ThemeRepository = Depends(get_theme_repository),
     image_repo: ImageRepository = Depends(get_image_repository),
     image_svc: ImageService = Depends(get_image_service),
+    audio_svc: AudioService = Depends(get_audio_service),
+    video_svc: VideoService = Depends(get_video_service),
+    question_repo: QuestionRepository = Depends(get_question_repository),
 ) -> ThemeService:
     # ✅ toutes les dépendances injectées via la signature (FastAPI les résout)
-    return ThemeService(repo=theme_repo, image_repo=image_repo, image_svc=image_svc)
+    return ThemeService(
+        repo=theme_repo, 
+        image_repo=image_repo, 
+        image_svc=image_svc,
+        audio_svc=audio_svc,
+        video_svc=video_svc,
+        question_repo=question_repo,
+    )
 
 # -----------------------------
 # Category service

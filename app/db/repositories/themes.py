@@ -210,3 +210,10 @@ class ThemeRepository(BaseRepository[Theme]):
             self.model.valid_admin.is_(True),
         ).limit(1)
         return self.session.exec(stmt).first() is not None
+    
+    def get_join_by_id(self, theme_id: int) -> Optional[ThemeJoinOut]:
+        stmt = self._select_theme_out().where(Theme.id == theme_id).limit(1)
+        row = self.session.exec(stmt).first()
+        if not row:
+            return None
+        return ThemeJoinOut(**dict(row._mapping))
