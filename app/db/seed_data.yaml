@@ -184,6 +184,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/BDFrancoBelge/questions.json"
 
   - key: beyonce
     name: "Beyoncé"
@@ -194,6 +195,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/Beyonce/questions.json"
 
   - key: big_three_tennis
     name: "Big Three Tennis"
@@ -204,6 +206,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/BigThreeTennis/questions.json"
 
   - key: cerveau
     name: "Cerveau"
@@ -214,6 +217,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/Cerveau/questions.json"
 
   - key: chansons_disney
     name: "Chansons Disney"
@@ -224,6 +228,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/ChansonsDisney/questions.json"
 
   - key: cryptozoologie
     name: "Cryptozoologie"
@@ -234,6 +239,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/CryptoZoologie/questions.json"
 
   - key: cuisine_francaise
     name: "Cuisine française"
@@ -244,6 +250,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/CuisineFrancaise/questions.json"
 
   - key: cuisine_francaise_martin
     name: "Cuisine française 2"
@@ -254,6 +261,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/CuisineFrancaise_Martin/questions.json"
 
   - key: culture_generale
     name: "Culture générale"
@@ -264,6 +272,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/CultureGenerale/questions.json"
 
   - key: culture_generale_4p
     name: "Culture générale 4P"
@@ -274,6 +283,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/CultureGenerale_4P/questions.json"
 
   - key: culture_generale_2025
     name: "Culture générale 2025"
@@ -284,6 +294,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/CultureGenerale_2025/questions.json"
 
   - key: culture_generale_tp_2000
     name: "Culture générale TP 2000"
@@ -294,6 +305,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/CultureGenerale_TP2000/questions.json"
 
   - key: dark
     name: "Dark"
@@ -304,6 +316,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/dark/questions.json"
 
   - key: dragon_ball_z
     name: "Dragon Ball Z"
@@ -314,6 +327,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/DragonBallZ/questions.json"
 
   - key: exclusivites_playstation
     name: "Exclusivités PlayStation"
@@ -324,6 +338,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/ExclusivitesPlaystation/questions.json"
 
   - key: fatal_bazooka
     name: "Fatal Bazooka"
@@ -334,6 +349,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/FatalBazooka/questions.json"
 
   - key: films_disney
     name: "Films Disney"
@@ -344,6 +360,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/FilmsDisney/questions.json"
 
   - key: foot_coupe_du_monde
     name: "Foot – Coupe du Monde"
@@ -354,6 +371,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/FootCoupeDuMonde/questions.json"
 
   - key: game_of_thrones
     name: "Game of Thrones"
@@ -364,6 +382,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/GameOfThrones/questions.json"
 
   - key: harry_potter
     name: "Harry Potter"
@@ -374,6 +393,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/HarryPotter/questions.json"
 
   - key: heros_marvel
     name: "Héros Marvel"
@@ -384,6 +404,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/HerosMarvel/questions.json"
 
   - key: impressionnisme
     name: "Impressionnisme"
@@ -394,6 +415,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/Impressionnisme/questions.json"
 
   - key: iron_maiden
     name: "Iron Maiden"
@@ -404,6 +426,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/IronMaiden/questions.json"
 
   - key: jv_pokemon
     name: "JV Pokémon"
@@ -414,6 +437,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/JvPokemon/questions.json"
 
   - key: les_chats
     name: "Les chats"
@@ -424,6 +448,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/LesChats/questions.json"
 
   - key: ligue_des_champions
     name: "Ligue des Champions"
@@ -434,6 +459,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/LigueDesChampions/questions.json"
 
   - key: ligue_des_champions_2
     name: "Ligue des Champions 2"
@@ -444,6 +470,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/LigueDesChampions2/questions.json"
 
   - key: lol_competitif
     name: "LoL compétitif"
@@ -454,6 +481,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/LolCompetitif/questions.json"
 
   - key: malcolm
     name: "Malcolm"
@@ -464,6 +492,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/Malcolm/questions.json"
 
   - key: mythologie_greco_romaine
     name: "Mythologie gréco-romaine"
@@ -474,6 +503,7 @@ themes:
     is_public: true
     is_ready: false
     valid_admin: false
+    questions_json_path: "app/db/docs/themes/MythologieGrecoRomaine/questions.json"
 
   - key: nintendo
     name: "Nintendo"
@@ -484,6 +514,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/Nintendo/questions.json"
 
   - key: one_piece
     name: "One Piece"
@@ -494,6 +525,7 @@ themes:
     is_public: true
     is_ready: false
     valid_admin: false
+    questions_json_path: "app/db/docs/themes/OnePiece/questions.json"
 
   - key: petanque_pastis
     name: "Pétanque & pastis"
@@ -504,6 +536,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/PetanquePastis/questions.json"
 
   - key: pirates_des_caraibes
     name: "Pirates des Caraïbes"
@@ -514,6 +547,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/PiratesDesCaraibes/questions.json"
 
   - key: rap_francais
     name: "Rap français"
@@ -524,6 +558,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/RapFrancais/questions.json"
 
   - key: rivalite_djokovic_alcaraz
     name: "Rivalité Djokovic – Alcaraz"
@@ -534,6 +569,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/RivaliteDjokovicAlcaraz/questions.json"
 
   - key: seigneur_des_anneaux
     name: "Le Seigneur des Anneaux"
@@ -544,6 +580,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/LeSeigneurDesAnneaux/questions.json"
 
   - key: slack
     name: "Slack"
@@ -554,6 +591,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/Slack/questions.json"
 
   - key: surrealisme
     name: "Surréalisme"
@@ -564,6 +602,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/Surrealisme/questions.json"
 
   - key: techno
     name: "Techno"
@@ -574,6 +613,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/Techno/questions.json"
 
   - key: the_office
     name: "The Office"
@@ -584,6 +624,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/TheOffice/questions.json"
 
   - key: the_walking_dead
     name: "The Walking Dead"
@@ -594,6 +635,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/TheWalkingDead/questions.json"
 
   - key: velo
     name: "Vélo"
@@ -604,6 +646,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/Velo/questions.json"
 
   - key: world_of_warcraft
     name: "World of Warcraft"
@@ -614,6 +657,7 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/WorldOfWarcraft/questions.json"
 
   - key: zelda
     name: "Zelda"
@@ -624,9 +668,10 @@ themes:
     is_public: true
     is_ready: true
     valid_admin: true
+    questions_json_path: "app/db/docs/themes/Zelda/questions.json"
 
   - key: z_event
-    name: "Z Event"
+    name: "ZEvent"
     description: "L'événement caritatif, ses éditions et ses moments forts."
     owner_key: xavier
     category_key: societe
@@ -634,3 +679,4 @@ themes:
     is_public: true
     is_ready: false
     valid_admin: false
+    questions_json_path: "app/db/docs/themes/ZEvent/questions.json"
