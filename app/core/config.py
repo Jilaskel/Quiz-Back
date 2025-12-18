@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     JWT_ISSUER: str = "quiz-api"
     JWT_ALGORITHM: str = "HS256"
 
-    ACCESS_TTL_MINUTES: int = 15          # access token court
+    ACCESS_TTL_MINUTES: int = 60  * 3        # access token court
     REFRESH_TTL_DAYS: int = 30            # refresh token long
 
     # Cookies (refresh)

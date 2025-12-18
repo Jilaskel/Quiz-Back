@@ -70,8 +70,8 @@ def _enrich_with_signed(
 def list_public(
     offset: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=200),
-    ready_only: bool = Query(True),
-    validated_only: bool = Query(False),
+    # ready_only: bool = Query(True),
+    # validated_only: bool = Query(False),
     category_id: Optional[int] = Query(None),
     q: Optional[str] = Query(None),
     newest_first: bool = Query(True),
@@ -81,8 +81,8 @@ def list_public(
     themes = svc.list_public(
         offset=offset,
         limit=limit,
-        ready_only=ready_only,
-        validated_only=validated_only,
+        ready_only=True,
+        validated_only=True,
         category_id=category_id,
         q=q,
         newest_first=newest_first,
