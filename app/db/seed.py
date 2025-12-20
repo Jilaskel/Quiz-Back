@@ -13,7 +13,9 @@ from app.db.models.users import User
 from app.db.models.colors import Color
 from app.db.models.categories import Category
 from app.db.models.themes import Theme
-from app.db.models.questions import Question  # ✅ AJOUT
+from app.db.models.questions import Question
+from app.db.models.jokers import Joker
+from app.db.models.bonus import Bonus
 from app.security.password import hash_password
 
 from app.features.media.services import ImageService, AudioService, VideoService
@@ -246,6 +248,61 @@ def seed_users(session: Session, data: Dict[str, Any]) -> None:
     session.commit()
     print(f"✅ {len(users)} utilisateurs insérés.")
 
+# ------------------------------------------------------------
+# Seed Jokers
+# ------------------------------------------------------------
+def seed_jokers(session: Session, data: Dict[str, Any]) -> None:
+    """
+    Seed idempotent des jokers.
+    - Si au moins un Joker existe déjà, on ne réinsère rien (comportement cohérent avec les autres seeds).
+    - Utilise la clé YAML `jokers:`
+    """
+    if session.exec(select(Joker)).first():
+        print("ℹ️ Les jokers existent déjà, aucune insertion effectuée.")
+        return
+
+    jokers: List[Dict[str, Any]] = data.get("jokers", [])
+    if not jokers:
+        print("⚠️ Aucun joker dans le YAML (clé 'jokers').")
+        return
+
+    session.add_all([
+        Joker(
+            name=j["name"],
+            description=j["description"],
+        )
+        for j in jokers
+    ])
+    session.commit()
+    print(f"✅ {len(jokers)} jokers insérés.")
+
+
+# ------------------------------------------------------------
+# Seed Bonus
+# ------------------------------------------------------------
+def seed_bonus(session: Session, data: Dict[str, Any]) -> None:
+    """
+    Seed idempotent des bonus.
+    - Utilise la clé YAML `bonus:`
+    """
+    if session.exec(select(Bonus)).first():
+        print("ℹ️ Les bonus existent déjà, aucune insertion effectuée.")
+        return
+
+    bonus: List[Dict[str, Any]] = data.get("bonus", [])
+    if not bonus:
+        print("⚠️ Aucun bonus dans le YAML (clé 'bonus').")
+        return
+
+    session.add_all([
+        Bonus(
+            name=b["name"],
+            description=b["description"],
+        )
+        for b in bonus
+    ])
+    session.commit()
+    print(f"✅ {len(bonus)} bonus insérés.")
 
 # -----------------------------
 # Seed Themes (+ upload image)
@@ -515,6 +572,10 @@ async def seed_all(
     seed_colors(session, data)
     seed_categories(session, data)
     seed_users(session, data)
+
+    seed_jokers(session, data)
+    seed_bonus(session, data)
+    
     await seed_themes(session, img_svc, data)
 
     await seed_questions_from_json(session, img_svc, audio_svc, video_svc, data, replace_existing=True)

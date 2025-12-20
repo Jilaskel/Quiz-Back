@@ -29,6 +29,16 @@ from app.db.models.refresh_tokens import RefreshToken
 from app.db.models.themes import Theme
 from app.db.models.questions import Question
 
+from app.db.models.games import Game
+from app.db.models.players import Player
+from app.db.models.rounds import Round
+from app.db.models.grids import Grid
+from app.db.models.jokers import Joker
+from app.db.models.jokers_in_games import JokerInGame
+from app.db.models.jokers_used_in_games import JokerUsedInGame
+from app.db.models.bonus import Bonus
+from app.db.models.bonus_in_games import BonusInGame
+
 from app.core.config import settings
 
 def _build_engine() -> Engine:

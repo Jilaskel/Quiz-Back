@@ -174,6 +174,40 @@ users:
     password: Xavier123
     admin: false
 
+jokers:
+  - key: x2
+    name: "x2"
+    description: "Double les points de la prochaine question jouée par le joueur. Si cette question fait partie du thème d'un autre joueur et que la réponse est correcte, le joueur ciblé perds les poids doublés."
+
+  - key: all_in
+    name: "All-In"
+    description: "Sur la prochaine question : si la réponse est correcte, chaque adversaire perd un nombre de points égal à la valeur de la question. Si la réponse est incorrecte, le joueur qui a utilisé le joker perd ce même nombre de points."
+
+  - key: flash
+    name: "Flash"
+    description: "Masque la grille pour tous les joueurs jusqu’au prochain tour du joueur qui a utilisé ce joker."
+
+  - key: gamble
+    name: "Gamble"
+    description: "Le joueur parie sur une question de la grille : si le joueur qui répond à cette question répond correctement, le parieur gagne aussi les points de la question. Sinon, le parieur perd ce même nombre de points."
+
+  - key: appel_a_un_ami
+    name: "Appel à un ami"
+    description: "Le joueur désigne un autre joueur pour l’aider à répondre à la prochaine question. Si la réponse est incorrecte, le joueur appelé perd un nombre de points égal à la valeur de la question."
+
+bonus:
+  - key: sniper
+    name: "Sniper"
+    description: "Récompense les joueurs qui a fait perdre le plus de points aux autres joueurs sur l’ensemble de la partie."
+
+  - key: victime
+    name: "Victime"
+    description: "Récompense les joueurs qui a perdu le plus de points à cause des réponses des autres joueurs sur l’ensemble de la partie."
+
+  - key: game_addict
+    name: "Game addict"
+    description: "Récompense les joueurs ayant tenté les questions les plus dures."
+
 themes:
   - key: bd_franco_belge
     name: "BD Franco-Belge"

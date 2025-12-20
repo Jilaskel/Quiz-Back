@@ -4,3 +4,4 @@ venv
 .env
 minio-data/
 app/db/docs/
+data/

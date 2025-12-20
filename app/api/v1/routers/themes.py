@@ -9,15 +9,11 @@ from app.api.v1.dependencies import (
     get_category_service
 )
 from app.features.authentication.services import AuthService
-# from app.features.users.schemas import UserOut  # pour typer l'objet retourné par auth.get_current_user si besoin
 from app.features.themes.schemas import (
     ThemeCreateIn, 
-    ThemeUpdateIn, 
     ThemeUpdateWithQuestionsIn,
-    ThemeOut, 
     ThemeJoinOut, 
     ThemeCreateOut, 
-    ThemeWithSignedUrlOut,
     ThemeDetailJoinWithSignedUrlOut,
     ThemeJoinWithSignedUrlOut, 
     CategoryPublicList,  

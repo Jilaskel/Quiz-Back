@@ -46,6 +46,20 @@ from app.db.repositories.categories import CategoryRepository
 from app.db.repositories.questions import QuestionRepository
 from app.features.questions.services import QuestionService
 
+from app.db.repositories.games import GameRepository
+from app.db.repositories.players import PlayerRepository
+from app.db.repositories.rounds import RoundRepository
+from app.db.repositories.grids import GridRepository
+from app.db.repositories.jokers import JokerRepository
+from app.db.repositories.jokers_in_games import JokerInGameRepository
+from app.db.repositories.jokers_used_in_games import JokerUsedInGameRepository
+from app.db.repositories.bonus import BonusRepository
+from app.db.repositories.bonus_in_games import BonusInGameRepository
+from app.db.repositories.colors import ColorRepository
+
+from app.features.games.services import GameService
+
+
 from app.security.tokens import JWTSettings
 from app.core.config import jwt_settings
 
@@ -93,6 +107,35 @@ def get_video_repository(session: Session = Depends(get_session)) -> VideoReposi
 def get_question_repository(session: Session = Depends(get_session)) -> QuestionRepository:
     return QuestionRepository(session)
 
+def get_game_repository(session: Session = Depends(get_session)) -> GameRepository:
+    return GameRepository(session)
+
+def get_player_repository(session: Session = Depends(get_session)) -> PlayerRepository:
+    return PlayerRepository(session)
+
+def get_round_repository(session: Session = Depends(get_session)) -> RoundRepository:
+    return RoundRepository(session)
+
+def get_grid_repository(session: Session = Depends(get_session)) -> GridRepository:
+    return GridRepository(session)
+
+def get_joker_repository(session: Session = Depends(get_session)) -> JokerRepository:
+    return JokerRepository(session)
+
+def get_joker_in_game_repository(session: Session = Depends(get_session)) -> JokerInGameRepository:
+    return JokerInGameRepository(session)
+
+def get_joker_used_in_game_repository(session: Session = Depends(get_session)) -> JokerUsedInGameRepository:
+    return JokerUsedInGameRepository(session)
+
+def get_bonus_repository(session: Session = Depends(get_session)) -> BonusRepository:
+    return BonusRepository(session)
+
+def get_bonus_in_game_repository(session: Session = Depends(get_session)) -> BonusInGameRepository:
+    return BonusInGameRepository(session)
+
+def get_color_repository(session: Session = Depends(get_session)) -> ColorRepository:
+    return ColorRepository(session)
 # -----------------------------
 # Media services
 # -----------------------------
@@ -159,6 +202,42 @@ def get_theme_service(
         audio_svc=audio_svc,
         video_svc=video_svc,
         question_repo=question_repo,
+    )
+
+# -----------------------------
+# Game service
+# -----------------------------
+def get_game_service(
+    session: Session = Depends(get_session),
+    game_repo: GameRepository = Depends(get_game_repository),
+    player_repo: PlayerRepository = Depends(get_player_repository),
+    round_repo: RoundRepository = Depends(get_round_repository),
+    grid_repo: GridRepository = Depends(get_grid_repository),
+    joker_repo: JokerRepository = Depends(get_joker_repository),
+    joker_in_game_repo: JokerInGameRepository = Depends(get_joker_in_game_repository),
+    jokers_used: JokerUsedInGameRepository = Depends(get_joker_used_in_game_repository),
+    bonus_repo: BonusRepository = Depends(get_bonus_repository),
+    bonus_in_game_repo: BonusInGameRepository = Depends(get_bonus_in_game_repository),
+    color_repo: ColorRepository = Depends(get_color_repository),
+) -> GameService:
+    """
+    Fournit une instance de GameService avec tous ses repositories injectés.
+    Pattern identique à ThemeService :
+    - aucune logique dans la route
+    - dépendances résolues par FastAPI
+    """
+    return GameService(
+        session=session,
+        game_repo=game_repo,
+        player_repo=player_repo,
+        round_repo=round_repo,
+        grid_repo=grid_repo,
+        joker_repo=joker_repo,
+        joker_in_game_repo=joker_in_game_repo,
+        joker_used_repo=jokers_used,
+        bonus_repo=bonus_repo,
+        bonus_in_game_repo=bonus_in_game_repo,
+        color_repo=color_repo,
     )
 
 # -----------------------------
