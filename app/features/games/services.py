@@ -3,6 +3,7 @@ from sqlmodel import Session
 
 import secrets
 import string
+import random
 
 from app.db.repositories.games import GameRepository
 from app.db.repositories.players import PlayerRepository
@@ -14,6 +15,7 @@ from app.db.repositories.jokers_in_games import JokerInGameRepository
 from app.db.repositories.jokers_used_in_games import JokerUsedInGameRepository
 from app.db.repositories.bonus_in_games import BonusInGameRepository
 from app.db.repositories.colors import ColorRepository
+from app.db.repositories.questions import QuestionRepository
 
 from app.features.games.schemas import GameCreateIn, RoundCreateIn, AnswerCreateIn, JokerUseIn
 
@@ -47,6 +49,7 @@ class GameService:
         bonus_repo: BonusRepository,
         bonus_in_game_repo: BonusInGameRepository,
         color_repo: ColorRepository,
+        question_repo: QuestionRepository,
     ):
         self.session = session
 
@@ -63,6 +66,9 @@ class GameService:
         self.bonus_in_game = bonus_in_game_repo
 
         self.colors = color_repo
+
+        self.questions = question_repo
+        self.QUESTIONS_PAGE_SIZE = 500
 
     # -----------------------------------
     # Helpers: auth & ownership
@@ -88,6 +94,28 @@ class GameService:
         alphabet = string.ascii_lowercase + string.digits
         token = "".join(secrets.choice(alphabet) for _ in range(8))
         return f"g-{token}"
+    
+    # -----------------------------------
+    # Helpers: question selection for new games
+    # -----------------------------------
+    def _load_all_question_ids_for_theme(self, theme_id: int) -> List[int]:
+        """Charge tous les IDs de questions pour un thème via pagination."""
+        ids: List[int] = []
+        offset = 0
+        while True:
+            batch = self.questions.list_by_theme(
+                theme_id,
+                offset=offset,
+                limit=self.QUESTIONS_PAGE_SIZE,
+                newest_first=False,  # stable
+            )
+            if not batch:
+                break
+            ids.extend([q.id for q in batch])
+            offset += len(batch)
+            if len(batch) < self.QUESTIONS_PAGE_SIZE:
+                break
+        return ids
 
     # ---------------------------------------------------------------------
     # Catalogues jokers / bonus
@@ -163,14 +191,17 @@ class GameService:
         )
 
         # Players
+        created_players = []
         for p in payload.players:
-            self.players.create(
-                commit=False,
-                game_id=game.id,
-                color_id=p.color_id,
-                theme_id=p.theme_id,
-                name=p.name,
-                order=p.order,
+            created_players.append(
+                self.players.create(
+                    commit=False,
+                    game_id=game.id,
+                    color_id=p.color_id,
+                    theme_id=p.theme_id,
+                    name=p.name,
+                    order=p.order,
+                )
             )
 
         # Attach jokers/bonus (optionnel)
@@ -183,8 +214,84 @@ class GameService:
             for bid in payload.bonus_ids:
                 self.bonus_in_game.create(commit=False, bonus_id=bid, game_id=game.id)
 
-        # TODO: init grille (cells + question_id) selon seed
-        # -> volontairement laissé hors-scope ici
+        # init grille (cells + question_id) selon seed
+        rows = payload.rows_number
+        cols = payload.columns_number
+        grid_size = rows * cols
+
+        nb_players = len(payload.players)
+        player_q_total = nb_players * payload.number_of_questions_by_player
+        general_q_total = grid_size - player_q_total
+        if general_q_total < 0:
+            raise ConflictError("GRID_TOO_SMALL_FOR_REQUESTED_PLAYER_QUESTIONS")
+
+        if not payload.general_theme_ids:
+            raise ConflictError("GENERAL_THEMES_REQUIRED")
+
+        rng = random.Random(payload.seed)
+
+        player_theme_ids = [p.theme_id for p in created_players]
+        general_theme_ids = list(payload.general_theme_ids)
+
+        # Interdire qu'un thème joueur soit aussi culture G :
+        general_theme_ids = [tid for tid in general_theme_ids if tid not in set(player_theme_ids)]
+        if not general_theme_ids: raise ConflictError("GENERAL_THEMES_REQUIRED")
+
+        theme_ids_needed = sorted(set(player_theme_ids) | set(general_theme_ids))
+
+        # 1) pool d'IDs par thème
+        pool: Dict[int, List[int]] = {}
+        for tid in theme_ids_needed:
+            qids = self._load_all_question_ids_for_theme(tid)
+            rng.shuffle(qids)  # déterministe
+            pool[tid] = qids
+
+        # 2) tirer questions joueurs
+        player_selected_qids: List[int] = []
+        for tid in player_theme_ids:
+            need = payload.number_of_questions_by_player
+            if len(pool.get(tid, [])) < need:
+                raise ConflictError("NOT_ENOUGH_QUESTIONS_FOR_PLAYER_THEME")
+            for _ in range(need):
+                player_selected_qids.append(pool[tid].pop())
+
+        # 3) tirer questions culture G (répartition random sur themes)
+        general_selected_qids: List[int] = []
+        for _ in range(general_q_total):
+            tid = rng.choice(general_theme_ids)
+            if not pool.get(tid):
+                # fallback: prendre un autre thème non vide
+                non_empty = [x for x in general_theme_ids if pool.get(x)]
+                if not non_empty:
+                    raise ConflictError("NOT_ENOUGH_QUESTIONS_FOR_GENERAL_THEMES")
+                tid = rng.choice(non_empty)
+            general_selected_qids.append(pool[tid].pop())
+
+        # 4) placement
+        coords = [(r, c) for r in range(rows) for c in range(cols)]
+        rng.shuffle(coords)
+
+        # Mélange des questions pour éviter "bloc joueur puis bloc culture G"
+        all_qids = player_selected_qids + general_selected_qids
+        rng.shuffle(all_qids)
+
+        if len(all_qids) != grid_size:
+            raise ConflictError("GRID_FILL_COUNT_MISMATCH")
+
+        grids_to_create = []
+        for (r, c), qid in zip(coords, all_qids):
+            grids_to_create.append(
+                self.grids.create(
+                    commit=False,
+                    game_id=game.id,
+                    round_id=None,
+                    question_id=qid,
+                    correct_answer=False,
+                    skip_answer=False,
+                    row=r,
+                    column=c,
+                )
+            )
 
         # 6) créer le first round (round_number=1) pour le premier joueur
         first_player = self.players.get_next_player_in_game(game.id, current_order=0)

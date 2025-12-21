@@ -35,6 +35,9 @@ class GameCreateIn(BaseModel):
     columns_number: int = Field(ge=1, le=50)
 
     players: List[PlayerCreateIn] = Field(min_length=1, max_length=20)
+    number_of_questions_by_player: int = Field(ge=1, le=50)
+
+    general_theme_ids: List[int] = Field(min_length=1)
 
     # optionnel : associer des jokers/bonus au setup
     joker_ids: Optional[List[int]] = None

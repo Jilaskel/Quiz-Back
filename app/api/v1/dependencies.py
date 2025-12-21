@@ -219,6 +219,7 @@ def get_game_service(
     bonus_repo: BonusRepository = Depends(get_bonus_repository),
     bonus_in_game_repo: BonusInGameRepository = Depends(get_bonus_in_game_repository),
     color_repo: ColorRepository = Depends(get_color_repository),
+    question_repo: QuestionRepository = Depends(get_question_repository),
 ) -> GameService:
     """
     Fournit une instance de GameService avec tous ses repositories injectés.
@@ -238,6 +239,7 @@ def get_game_service(
         bonus_repo=bonus_repo,
         bonus_in_game_repo=bonus_in_game_repo,
         color_repo=color_repo,
+        question_repo=question_repo,
     )
 
 # -----------------------------
