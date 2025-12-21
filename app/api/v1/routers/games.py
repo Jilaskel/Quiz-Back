@@ -21,7 +21,9 @@ from app.features.games.schemas import (
     AnswerCreateOut,
     JokerUseIn,
     JokerUseOut,
-    ColorPublicOut
+    ColorPublicOut,
+    GameSetupSuggestOut,
+    GameSetupSuggestIn
 )
 from app.features.games.services import GameService, PermissionError, ConflictError
 
@@ -230,3 +232,17 @@ def answer(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+@router.post(
+    "/suggest-setup",
+    summary="Suggérer des paramètres de partie",
+    response_model=GameSetupSuggestOut,
+)
+def suggest_setup(
+    payload: GameSetupSuggestIn,
+    access_token: str = Depends(get_access_token_from_bearer),
+    auth_svc: AuthService = Depends(get_auth_service),
+    svc: GameService = Depends(get_game_service),
+):
+    user_id, _is_admin = _get_user_ctx(access_token, auth_svc)
+    return svc.suggest_setup(payload)

@@ -1,5 +1,6 @@
 from typing import List, Optional, Sequence
 from sqlmodel import select
+from sqlalchemy import func
 
 from app.db.repositories.base import BaseRepository
 from app.db.models.questions import Question
@@ -45,3 +46,7 @@ class QuestionRepository(BaseRepository[Question]):
         if commit:
             self.session.commit()
         return len(rows)
+
+    def count_by_theme(self, theme_id: int) -> int:
+        stmt = select(func.count(self.model.id)).where(self.model.theme_id == theme_id)
+        return int(self.session.exec(stmt).one())

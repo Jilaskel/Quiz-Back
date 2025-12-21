@@ -17,7 +17,7 @@ Facilite le passage entre environnements (dev / prod / test).
 """
 
 from datetime import timedelta
-from typing import Optional
+from typing import Optional, List, Tuple
 
 from pydantic_settings import BaseSettings
 from pydantic import AnyHttpUrl
@@ -75,6 +75,30 @@ class Settings(BaseSettings):
         "env_file_encoding": "utf-8",
         "case_sensitive": True,
     }
+
+    # Allowed game setup
+    # Thèmes culture générale (IDs en dur)
+    GENERAL_THEME_IDS: List[int] = [9, 10, 11, 12]
+
+    # Jokers/bonus en dur (IDs)
+    DEFAULT_JOKER_IDS: List[int] = [1, 2, 4, 5]
+    DEFAULT_BONUS_IDS: List[int] = [1, 2, 3]
+
+    # Tailles de grilles autorisées (rows, cols)
+    ALLOWED_GRIDS: List[Tuple[int, int]] = [
+        (4, 5),
+        (5, 5),
+        (5, 6),
+        (6, 6),
+        (6, 7),
+        (7, 7),
+        (7, 8),
+        (8, 8),
+        (8, 9),
+        (9, 9),
+        (9, 10),
+        (10, 10),
+    ]
 
     # -----------------------------
     # Post-process values

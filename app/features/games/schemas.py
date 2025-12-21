@@ -1,5 +1,5 @@
 from typing import List, Optional, Dict
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 # -----------------------------
@@ -26,7 +26,6 @@ class PlayerCreateIn(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     color_id: int = Field(ge=1)
     theme_id: int = Field(ge=1)
-    order: int = Field(ge=1)
 
 
 class GameCreateIn(BaseModel):
@@ -218,3 +217,28 @@ class ColorPublicOut(BaseModel):
     id: int
     name: str
     hex_code: str
+
+# -----------------------------
+# Suggestion de setup
+# -----------------------------
+class PlayerSetupIn(BaseModel):
+    theme_id: int
+
+class GameSetupSuggestIn(BaseModel):
+    players: List[PlayerSetupIn] = Field(min_length=1, max_length=20)
+
+    @model_validator(mode="after")
+    def themes_must_be_unique(self):
+        theme_ids = [p.theme_id for p in self.players]
+        if len(theme_ids) != len(set(theme_ids)):
+            raise ValueError("Each player must have a unique theme_id")
+        return self
+
+class GameSetupSuggestOut(BaseModel):
+    number_of_questions_by_player: int
+    rows_number: int
+    columns_number: int
+
+    general_theme_ids: List[int]
+    joker_ids: List[int]
+    bonus_ids: List[int]

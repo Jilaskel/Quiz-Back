@@ -4,6 +4,7 @@ from sqlmodel import Session
 import secrets
 import string
 import random
+from collections import Counter
 
 from app.db.repositories.games import GameRepository
 from app.db.repositories.players import PlayerRepository
@@ -17,7 +18,9 @@ from app.db.repositories.bonus_in_games import BonusInGameRepository
 from app.db.repositories.colors import ColorRepository
 from app.db.repositories.questions import QuestionRepository
 
-from app.features.games.schemas import GameCreateIn, RoundCreateIn, AnswerCreateIn, JokerUseIn
+from app.features.games.schemas import GameCreateIn, RoundCreateIn, AnswerCreateIn, JokerUseIn, GameSetupSuggestIn, GameSetupSuggestOut
+
+from app.core.config import settings
 
 class PermissionError(Exception):
     """Accès interdit (owner/admin)."""
@@ -170,6 +173,9 @@ class GameService:
     # ---------------------------------------------------------------------
 
     def create_game(self, payload: GameCreateIn, *, owner_id: int) -> Any:
+        # Fixed random
+        rng = random.Random(payload.seed)
+
         # 1) génère une url unique avec retry
         url = self._generate_game_url()
         tries = 0
@@ -179,6 +185,11 @@ class GameService:
                 raise ConflictError("GAME_URL_GENERATION_FAILED")
             url = self._generate_game_url()
 
+        # thèmes joueurs uniques
+        theme_ids = [p.theme_id for p in payload.players]
+        if len(theme_ids) != len(set(theme_ids)):
+            raise ConflictError("DUPLICATE_PLAYER_THEMES_NOT_ALLOWED")
+    
         # Transaction globale
         game = self.games.create(
             commit=False,
@@ -191,8 +202,11 @@ class GameService:
         )
 
         # Players
+        players_payload = list(payload.players)
+        rng.shuffle(players_payload)
+
         created_players = []
-        for p in payload.players:
+        for idx, p in enumerate(players_payload, start=1):
             created_players.append(
                 self.players.create(
                     commit=False,
@@ -200,7 +214,7 @@ class GameService:
                     color_id=p.color_id,
                     theme_id=p.theme_id,
                     name=p.name,
-                    order=p.order,
+                    order=idx,
                 )
             )
 
@@ -228,7 +242,6 @@ class GameService:
         if not payload.general_theme_ids:
             raise ConflictError("GENERAL_THEMES_REQUIRED")
 
-        rng = random.Random(payload.seed)
 
         player_theme_ids = [p.theme_id for p in created_players]
         general_theme_ids = list(payload.general_theme_ids)
@@ -632,3 +645,54 @@ class GameService:
     def list_public_colors(self, *, offset: int = 0, limit: int = 500) -> List[Dict[str, Any]]:
         rows = self.colors.list_public(offset=offset, limit=limit)
         return [{"id": r[0], "name": r[1], "hex_code": r[2]} for r in rows]
+    
+    # ---------------------------------------------------------------------
+    # Suggestion de setup
+    # ---------------------------------------------------------------------
+    def suggest_setup(self, payload: GameSetupSuggestIn) -> GameSetupSuggestOut:
+        theme_ids = [p.theme_id for p in payload.players]
+
+        counts = Counter(theme_ids)
+        duplicates = [tid for tid, c in counts.items() if c > 1]
+        if duplicates:
+            # tu peux aussi inclure duplicates dans le detail si tu veux
+            raise ConflictError("DUPLICATE_PLAYER_THEMES_NOT_ALLOWED")
+
+        # 1) compter questions dispo par thème joueur
+        counts = [self.questions.count_by_theme(tid) for tid in theme_ids]
+
+        # cas extrêmes
+        if not counts:
+            raise ConflictError("NO_PLAYERS")
+
+        min_available = min(counts)
+        if min_available <= 0:
+            # pas jouable : au moins un thème n'a aucune question
+            raise ConflictError("THEME_HAS_NO_QUESTIONS")
+
+        # 2) conseillé = min_available capé à 10
+        n_by_player = min(min_available, 10)
+
+        # 3) taille de grille minimale
+        needed_cells = len(theme_ids) * n_by_player
+
+        # 4) choisir la plus petite grille autorisée qui fit
+        chosen: Tuple[int, int] | None = None
+        for (r, c) in settings.ALLOWED_GRIDS:
+            if r * c >= needed_cells:
+                chosen = (r, c)
+                break
+
+        if chosen is None:
+            raise ConflictError("NO_ALLOWED_GRID_CAN_FIT_REQUEST")
+
+        rows, cols = chosen
+
+        return GameSetupSuggestOut(
+            number_of_questions_by_player=n_by_player,
+            rows_number=rows,
+            columns_number=cols,
+            general_theme_ids=settings.GENERAL_THEME_IDS,
+            joker_ids=settings.DEFAULT_JOKER_IDS,
+            bonus_ids=settings.DEFAULT_BONUS_IDS,
+        )
