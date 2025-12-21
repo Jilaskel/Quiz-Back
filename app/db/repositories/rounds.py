@@ -1,6 +1,6 @@
 from typing import Any, Optional, Sequence
 
-from sqlmodel import select
+from sqlmodel import select, exists
 from sqlalchemy import func
 
 from app.db.repositories.base import BaseRepository
@@ -32,12 +32,17 @@ class RoundRepository(BaseRepository[Round]):
 
     def get_last_round_not_in_grid(self, game_id: int) -> Optional[Any]:
         """
-        Dernier tour ajouté à rounds qui n'est pas encore utilisé dans grids de la partie.
+        Dernier round de la partie qui n'est référencé par aucune Grid.round_id (non NULL).
+        Si toutes les grilles ont round_id NULL, ça retourne simplement le dernier round.
         """
-        subq_used_round_ids = (
-            select(func.distinct(Grid.round_id))
-            .where(Grid.game_id == game_id, Grid.round_id.is_not(None))
-            .subquery()
+
+        used_round_exists = (
+            exists(
+                select(1).where(
+                    Grid.game_id == game_id,
+                    Grid.round_id == Round.id,  # match explicite
+                )
+            )
         )
 
         stmt = (
@@ -52,10 +57,11 @@ class RoundRepository(BaseRepository[Round]):
             .join(Player, Player.id == Round.player_id)
             .where(
                 Player.game_id == game_id,
-                Round.id.not_in(select(subq_used_round_ids.c.round_id)),
+                ~used_round_exists,  # NOT EXISTS
             )
             .order_by(Round.round_number.desc(), Round.id.desc())
         )
+
         return self.session.exec(stmt).first()
     
     def get_round_context(self, round_id: int) -> Optional[Any]:

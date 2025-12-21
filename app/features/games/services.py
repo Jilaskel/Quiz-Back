@@ -404,6 +404,7 @@ class GameService:
                 "rows_number": game.rows_number,
                 "columns_number": game.columns_number,
                 "finished": game.finished,
+                "owner_id": game.owner_id
             },
             "players": [
                 {

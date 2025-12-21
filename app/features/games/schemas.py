@@ -135,6 +135,7 @@ class GameMetaOut(BaseModel):
     rows_number: int
     columns_number: int
     finished: bool
+    owner_id: int
 
 
 class GameStateOut(BaseModel):
@@ -145,7 +146,6 @@ class GameStateOut(BaseModel):
     available_jokers: List[JokerAvailabilityOut] = []
     bonus: List[BonusInGameOut] = []
     scores: Dict[int, int]  # player_id -> points
-    finished: bool
 
 # -----------------------------
 # Rounds
