@@ -180,9 +180,18 @@ def get_video_access_service(
 # -----------------------------
 def get_question_service(
     question_repo: QuestionRepository = Depends(get_question_repository),
+    theme_repo: ThemeRepository = Depends(get_theme_repository),
+    image_svc: ImageService = Depends(get_image_service),
+    audio_svc: AudioService = Depends(get_audio_service),
+    video_svc: VideoService = Depends(get_video_service),
 ) -> QuestionService:
-    return QuestionService(repo=question_repo)
-
+    return QuestionService(
+        repo=question_repo,
+        theme_repo=theme_repo,
+        image_svc=image_svc,
+        audio_svc=audio_svc,
+        video_svc=video_svc,
+    )
 # -----------------------------
 # Theme service
 # -----------------------------

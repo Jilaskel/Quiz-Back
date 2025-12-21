@@ -6,6 +6,7 @@ from app.api.v1.dependencies import (
     get_access_token_from_bearer,
     get_auth_service,
     get_game_service,
+    get_question_service,
 )
 from app.features.authentication.services import AuthService
 from app.features.games.schemas import (
@@ -26,6 +27,8 @@ from app.features.games.schemas import (
     GameSetupSuggestIn
 )
 from app.features.games.services import GameService, PermissionError, ConflictError
+from app.features.questions.services import QuestionService
+from app.features.questions.schemas import QuestionJoinWithSignedUrlOut
 
 
 router = APIRouter(
@@ -246,3 +249,30 @@ def suggest_setup(
 ):
     user_id, _is_admin = _get_user_ctx(access_token, auth_svc)
     return svc.suggest_setup(payload)
+
+@router.get(
+    "/questions/{question_id}",
+    summary="Récupérer une question par ID (avec signed URLs si autorisé)",
+    response_model=QuestionJoinWithSignedUrlOut,
+    status_code=status.HTTP_200_OK,
+)
+def get_question_by_id(
+    question_id: int,
+    with_signed_url: bool = Query(
+        False,
+        description="Si true, inclut des signed URLs si l'utilisateur est autorisé",
+    ),
+    access_token: str = Depends(get_access_token_from_bearer),
+    auth_svc: AuthService = Depends(get_auth_service),
+    svc: QuestionService = Depends(get_question_service),
+):
+    # 🔐 Auth obligatoire (même pattern que create_game)
+    user_id, is_admin = _get_user_ctx(access_token, auth_svc)
+    user_ctx = (user_id, is_admin)
+
+    try:
+        return svc.get_one_detail(question_id, user_ctx, with_signed_url=with_signed_url)
+    except LookupError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Question not found")
+    except PermissionError:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
