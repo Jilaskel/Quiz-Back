@@ -60,6 +60,7 @@ class ThemeJoinOut(ThemeOut):
     category_name: Optional[str]
     category_color_hex: Optional[str]
     owner_username: str
+    questions_count: int
 
 class ThemeWithSignedUrlOut(ThemeOut):
     image_signed_url: Optional[str] = None

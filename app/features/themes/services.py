@@ -184,8 +184,6 @@ class ThemeService:
         newest_first: bool = True,
     ) -> Sequence[Theme]:
         # admin: tout voir (simple stratégie = pas de filtre public/ready)
-        # On réutilise list() du repo de base + filtres simples
-        stmt = self.repo.session.query(Theme)  # type: ignore[attr-defined]
         # fallback SQLModel natif :
         statement = select(Theme)
         if category_id is not None:
