@@ -43,6 +43,7 @@ class GridRepository(BaseRepository[Grid]):
         """
         stmt = (
             select(
+                Grid.id,
                 Grid.round_id,
                 Grid.correct_answer,
                 Grid.skip_answer,

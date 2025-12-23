@@ -17,6 +17,8 @@ class JokerInGameRepository(BaseRepository[JokerInGame]):
                 Joker.id.label("joker_id"),
                 Joker.name,
                 Joker.description,
+                Joker.requires_target_player,
+                Joker.requires_target_grid,
             )
             .join(Joker, Joker.id == JokerInGame.joker_id)
             .where(JokerInGame.game_id == game_id)

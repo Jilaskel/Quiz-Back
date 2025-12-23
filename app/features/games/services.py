@@ -1,4 +1,5 @@
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, DefaultDict, Iterable
+from collections import defaultdict
 from sqlmodel import Session
 
 import secrets
@@ -126,7 +127,7 @@ class GameService:
 
     def list_all_jokers(self) -> List[Dict[str, Any]]:
         rows = self.jokers.list_name_description()
-        return [{"id": r[0], "name": r[1], "description": r[2]} for r in rows]
+        return [{"id": r[0], "name": r[1], "description": r[2], "requires_target_player": r[3], "requires_target_grid": r[4]} for r in rows]
 
     def list_all_bonus(self) -> List[Dict[str, Any]]:
         rows = self.bonus.list_name_description()
@@ -367,19 +368,24 @@ class GameService:
             }
 
         # 3) jokers dispo pour le joueur du tour (disponible = pas utilisé avant ce round)
-        available_jokers: List[Dict[str, Any]] = []
-        if current_turn:
-            all_jig = self.jokers_in_game.list_for_game(game.id)
-            used_before = set(
-                self.jokers_used.list_used_joker_in_game_ids_for_game_before_round(
-                    game.id, current_turn["round_id"]
-                )
-            )
-            available_jokers = [
+        all_jig = self.jokers_in_game.list_for_game(game.id)  # jokers au niveau partie
+        used_by_player = self.jokers_used.list_used_joker_in_game_ids_grouped_by_player_for_game(game.id)
+
+        available_jokers: Dict[int, List[Dict[str, Any]]] = {}
+        for p in players:
+            used_set = used_by_player.get(p.id, set())
+
+            available_jokers[p.id] = [
                 {
                     "joker_in_game_id": r.joker_in_game_id,
-                    "joker": {"id": r.joker_id, "name": r.name, "description": r.description},
-                    "available": (r.joker_in_game_id not in used_before),
+                    "joker": {
+                        "id": r.joker_id,
+                        "name": r.name,
+                        "description": r.description,
+                        "requires_target_player": bool(r.requires_target_player),
+                        "requires_target_grid": bool(r.requires_target_grid),
+                    },
+                    "available": (r.joker_in_game_id not in used_set),
                 }
                 for r in all_jig
             ]
@@ -429,96 +435,213 @@ class GameService:
 
     def _compute_scores(self, game_id: int, players) -> Dict[int, int]:
         """
-        Règle demandée :
-        - On parcourt les questions déjà répondues (grid.round_id > 0)
-        - Si skip -> 0
-        - Si incorrect -> 0 (pour l’instant)
-        - Si correct :
-            - si le joueur répond à son propre thème : +points
-            - si le joueur répond au thème d’un autre :
-                - le joueur gagne +points
-                - le joueur propriétaire du thème perd -points
-        + Placeholders pour jokers.
+        Base :
+        - skip => 0 et aucun effet joker
+        - incorrect => 0 (règle actuelle)
+        - correct :
+            - propre thème : +points
+            - thème adverse : joueur +points, owner -points
+
+        Jokers :
+        - x2 : double l'impact de la question jouée sur le round où il est joué (si correct)
+        - all_in : sur cette question :
+            - correct : tous les adversaires perdent points
+            - incorrect : le joueur perd points
+        - flash : aucun impact score
+        - gamble : cible une case -> s'applique quand cette case est résolue (non skip)
+            - correct : le parieur gagne points
+            - incorrect : le parieur perd points
+        - appel à un ami : sur cette question, si incorrect -> target perd points
         """
+        JOKER_X2 = "x2"
+        JOKER_ALL_IN = "All-In"
+        JOKER_FLASH = "Flash"
+        JOKER_GAMBLE = "Gamble"
+        JOKER_APPEL = "Appel à un ami"
+
         scores: Dict[int, int] = {p.id: 0 for p in players}
         player_theme: Dict[int, int] = {p.id: p.theme_id for p in players}
         theme_owner: Dict[int, int] = {p.theme_id: p.id for p in players}
+        all_player_ids = [p.id for p in players]
 
         answered = self.grids.list_answered_cells_for_scoring(game_id)
 
-        # On a besoin de round_id -> player_id pour savoir qui a joué
-        # (requête “pure” déjà possible, mais simple de la refaire en repo plus tard si besoin)
         rounds_flat = self.rounds.list_by_game(game_id)
         round_to_player: Dict[int, int] = {r.round_id: r.player_id for r in rounds_flat}
+
+        # jokers used enrichis (round_id, using_player_id, joker_name, targets...)
+        used_rows = self.jokers_used.list_used_for_game_for_scoring(game_id)
+
+        jokers_by_round: DefaultDict[int, List[Any]] = defaultdict(list)
+        gambles_by_grid: DefaultDict[int, List[Any]] = defaultdict(list)
+
+        for u in used_rows:
+            jokers_by_round[u.round_id].append(u)
+            if u.joker_name == JOKER_GAMBLE and u.target_grid_id:
+                gambles_by_grid[u.target_grid_id].append(u)
+
+        def owner_of_theme(theme_id: int) -> Optional[int]:
+            return theme_owner.get(theme_id)
+
+        def iter_round_jokers(round_id: int, using_player_id: int, joker_name: str) -> Iterable[Any]:
+            for u in jokers_by_round.get(round_id, []):
+                if u.using_player_id == using_player_id and u.joker_name == joker_name:
+                    yield u
+
+        def has_round_joker(round_id: int, using_player_id: int, joker_name: str) -> bool:
+            return any(True for _ in iter_round_jokers(round_id, using_player_id, joker_name))
+
+        # ------------------------------------------------------------------
+        # Joker functions (1 fonction / joker)
+        # ------------------------------------------------------------------
+
+        def _apply_x2(
+            *,
+            round_id: int,
+            answering_player_id: int,
+            is_correct: bool,
+            points: int,
+            question_theme_id: int,
+        ) -> None:
+            if not is_correct:
+                return
+            if not has_round_joker(round_id, answering_player_id, JOKER_X2):
+                return
+
+            # "double l'impact" => on ajoute un delta identique au delta normal
+            scores[answering_player_id] += points
+
+            # si thème adverse => owner perd aussi les points doublés
+            if player_theme.get(answering_player_id) != question_theme_id:
+                owner_id = owner_of_theme(question_theme_id)
+                if owner_id:
+                    scores[owner_id] -= points
+
+        def _apply_all_in(
+            *,
+            round_id: int,
+            answering_player_id: int,
+            is_correct: bool,
+            points: int,
+        ) -> None:
+            if not has_round_joker(round_id, answering_player_id, JOKER_ALL_IN):
+                return
+
+            if is_correct:
+                for pid in all_player_ids:
+                    if pid != answering_player_id:
+                        scores[pid] -= points
+            else:
+                scores[answering_player_id] -= points
+
+        def _apply_flash(*, round_id: int, answering_player_id: int) -> None:
+            # Pas d'impact score
+            _ = round_id
+            _ = answering_player_id
+            return
+
+        def _apply_appel_a_un_ami(
+            *,
+            round_id: int,
+            answering_player_id: int,
+            is_correct: bool,
+            points: int,
+        ) -> None:
+            # Si incorrect => le joueur ciblé perd points
+            if is_correct:
+                return
+
+            for u in iter_round_jokers(round_id, answering_player_id, JOKER_APPEL):
+                if u.target_player_id:
+                    scores[u.target_player_id] -= points
+
+        def _apply_gamble(
+            *,
+            grid_id: int,
+            is_correct: bool,
+            points: int,
+            answering_player_id: int,
+        ) -> None:
+            for u in gambles_by_grid.get(grid_id, []):
+                gambler_id = u.using_player_id
+
+                # ✅ Si le parieur répond lui-même à la question, pas d'effet Gamble
+                if gambler_id == answering_player_id:
+                    continue
+
+                if is_correct:
+                    scores[gambler_id] += points
+                else:
+                    scores[gambler_id] -= points
+
+
+        # ------------------------------------------------------------------
+        # Main loop
+        # ------------------------------------------------------------------
 
         for cell in answered:
             round_id = cell.round_id
             if round_id is None or round_id <= 0:
                 continue
 
-            player_id = round_to_player.get(round_id)
-            if not player_id:
-                continue
-
-             # skip / incorrect => 0 (pour l’instant)
-            if cell.skip_answer or (not cell.correct_answer):
-                self._apply_joker_effects_on_scoring_placeholder(
-                    game_id=game_id,
-                    round_id=round_id,
-                    player_id=player_id,
-                    question_theme_id=cell.question_theme_id,
-                    base_points=0,
-                    is_correct=cell.correct_answer,
-                    is_skip=cell.skip_answer,
-                    scores=scores,
-                )
+            answering_player_id = round_to_player.get(round_id)
+            if not answering_player_id:
                 continue
 
             points = int(cell.question_points or 0)
             question_theme_id = cell.question_theme_id
 
-            if player_theme.get(player_id) == question_theme_id:
-                # répond à son propre thème
-                scores[player_id] += points
-            else:
-                # répond à un autre thème
-                scores[player_id] += points
-                owner_id = theme_owner.get(question_theme_id)
-                if owner_id:
-                    scores[owner_id] -= points
+            # Skip => aucun effet (score + jokers)
+            if bool(cell.skip_answer):
+                continue
 
-            # Placeholder: jokers/bonus peuvent impacter le scoring
-            self._apply_joker_effects_on_scoring_placeholder(
-                game_id=game_id,
+            is_correct = bool(cell.correct_answer)
+
+            # 1) scoring normal
+            if is_correct:
+                if player_theme.get(answering_player_id) == question_theme_id:
+                    scores[answering_player_id] += points
+                else:
+                    scores[answering_player_id] += points
+                    owner_id = owner_of_theme(question_theme_id)
+                    if owner_id:
+                        scores[owner_id] -= points
+            else:
+                # incorrect => 0 (règle actuelle)
+                pass
+
+            # 2) apply jokers (round-based)
+            _apply_x2(
                 round_id=round_id,
-                player_id=player_id,
+                answering_player_id=answering_player_id,
+                is_correct=is_correct,
+                points=points,
                 question_theme_id=question_theme_id,
-                base_points=points,
-                is_correct=True,
-                is_skip=False,
-                scores=scores,
+            )
+            _apply_all_in(
+                round_id=round_id,
+                answering_player_id=answering_player_id,
+                is_correct=is_correct,
+                points=points,
+            )
+            _apply_flash(round_id=round_id, answering_player_id=answering_player_id)
+            _apply_appel_a_un_ami(
+                round_id=round_id,
+                answering_player_id=answering_player_id,
+                is_correct=is_correct,
+                points=points,
             )
 
-        return scores
+            # 3) gamble (grid-based)
+            _apply_gamble(
+                grid_id=cell.id,
+                is_correct=is_correct,
+                points=points,
+                answering_player_id=answering_player_id,
+            )
 
-    def _apply_joker_effects_on_scoring_placeholder(
-        self,
-        *,
-        game_id: int,
-        round_id: int,
-        player_id: int,
-        question_theme_id: int,
-        base_points: int,
-        is_correct: bool,
-        is_skip: bool,
-        scores: Dict[int, int],
-    ) -> None:
-        """
-        Placeholder : à implémenter.
-        Exemple : double points, annuler perte de points, voler points, etc.
-        Tu peux ici charger les jokers utilisés sur ce round et modifier `scores`.
-        """
-        return
+
+        return scores
     
     # ---------------------------------------------------------------------
     # Joker usage (process séparé)
@@ -540,12 +663,15 @@ class GameService:
         if round_ctx.game_id != game.id:
             raise LookupError("ROUND_NOT_IN_GAME")
 
-        # dispo = pas utilisé avant ce round
+        player_id = round_ctx.player_id
+
         used_before = set(
-            self.jokers_used.list_used_joker_in_game_ids_for_game_before_round(game.id, payload.round_id)
+            self.jokers_used.list_used_joker_in_game_ids_for_player_before_round(
+                game.id, player_id, payload.round_id
+            )
         )
         if payload.joker_in_game_id in used_before:
-            raise ConflictError("JOKER_ALREADY_USED")
+            raise ConflictError("Joker already used by this player")
 
         usage = self.jokers_used.create(
             commit=True,

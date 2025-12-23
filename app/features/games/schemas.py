@@ -10,6 +10,8 @@ class JokerPublicOut(BaseModel):
     id: int
     name: str
     description: str
+    requires_target_player: bool
+    requires_target_grid: bool
 
 
 class BonusPublicOut(BaseModel):
@@ -143,7 +145,7 @@ class GameStateOut(BaseModel):
     players: List[Dict]  # volontairement “simple” (ou tu peux typer strict)
     grid: List[GridCellOut]
     current_turn: Optional[CurrentTurnOut] = None
-    available_jokers: List[JokerAvailabilityOut] = []
+    available_jokers: Dict[int, List[JokerAvailabilityOut]] = {}
     bonus: List[BonusInGameOut] = []
     scores: Dict[int, int]  # player_id -> points
 

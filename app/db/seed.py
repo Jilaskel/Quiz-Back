@@ -270,6 +270,8 @@ def seed_jokers(session: Session, data: Dict[str, Any]) -> None:
         Joker(
             name=j["name"],
             description=j["description"],
+            requires_target_player=j["requires_target_player"],
+            requires_target_grid=j["requires_target_grid"],
         )
         for j in jokers
     ])

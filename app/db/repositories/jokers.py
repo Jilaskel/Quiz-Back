@@ -10,5 +10,5 @@ class JokerRepository(BaseRepository[Joker]):
     model = Joker
 
     def list_name_description(self) -> Sequence[Any]:
-        stmt = select(Joker.id, Joker.name, Joker.description).order_by(Joker.name.asc())
+        stmt = select(Joker.id, Joker.name, Joker.description, Joker.requires_target_player, Joker.requires_target_grid).order_by(Joker.name.asc())
         return self.session.exec(stmt).all()

@@ -178,22 +178,32 @@ jokers:
   - key: x2
     name: "x2"
     description: "Double les points de la prochaine question jouée par le joueur. Si cette question fait partie du thème d'un autre joueur et que la réponse est correcte, le joueur ciblé perds les poids doublés."
+    requires_target_player: false
+    requires_target_grid: false
 
   - key: all_in
     name: "All-In"
     description: "Sur la prochaine question : si la réponse est correcte, chaque adversaire perd un nombre de points égal à la valeur de la question. Si la réponse est incorrecte, le joueur qui a utilisé le joker perd ce même nombre de points."
+    requires_target_player: false
+    requires_target_grid: false
 
   - key: flash
     name: "Flash"
     description: "Masque la grille pour tous les joueurs jusqu’au prochain tour du joueur qui a utilisé ce joker."
+    requires_target_player: false
+    requires_target_grid: false
 
   - key: gamble
     name: "Gamble"
     description: "Le joueur parie sur une question de la grille : si le joueur qui répond à cette question répond correctement, le parieur gagne aussi les points de la question. Sinon, le parieur perd ce même nombre de points."
+    requires_target_player: false
+    requires_target_grid: true
 
   - key: appel_a_un_ami
     name: "Appel à un ami"
     description: "Le joueur désigne un autre joueur pour l’aider à répondre à la prochaine question. Si la réponse est incorrecte, le joueur appelé perd un nombre de points égal à la valeur de la question."
+    requires_target_player: true
+    requires_target_grid: false
 
 bonus:
   - key: sniper
@@ -535,8 +545,8 @@ themes:
     category_key: histoire
     image_path: "app/db/docs/img/theme_covers/mythologie_greco_romaine.png"
     is_public: true
-    is_ready: false
-    valid_admin: false
+    is_ready: true
+    valid_admin: true
     questions_json_path: "app/db/docs/themes/MythologieGrecoRomaine/questions.json"
 
   - key: nintendo
@@ -557,8 +567,8 @@ themes:
     category_key: manga_animes
     image_path: "app/db/docs/img/theme_covers/one_piece.png"
     is_public: true
-    is_ready: false
-    valid_admin: false
+    is_ready: true
+    valid_admin: true
     questions_json_path: "app/db/docs/themes/OnePiece/questions.json"
 
   - key: petanque_pastis
@@ -711,6 +721,6 @@ themes:
     category_key: societe
     image_path: "app/db/docs/img/theme_covers/z_event.jpg"
     is_public: true
-    is_ready: false
-    valid_admin: false
+    is_ready: true
+    valid_admin: true
     questions_json_path: "app/db/docs/themes/ZEvent/questions.json"
