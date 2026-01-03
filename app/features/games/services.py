@@ -356,6 +356,13 @@ class GameService:
             for r in grid_rows
         ]
 
+        # ✅ Vérifier si toutes les cases sont répondues
+        all_answered = all(r.round_id is not None for r in grid_rows)
+
+        # ✅ Marquer la partie comme terminée si nécessaire
+        if all_answered and not game.finished:
+            game = self.games.update(game, commit=True, finished=True)
+
         # 2) dernier round à jouer (= dernier round ajouté à rounds pas encore dans la grille)
         last_pending_round = self.rounds.get_last_round_not_in_grid(game.id)
 
