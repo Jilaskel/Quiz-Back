@@ -286,11 +286,27 @@ class TurnScoreOut(BaseModel):
     # delta uniquement sur ce tour
     delta: Dict[int, int]
 
+class BonusRankingItemOut(BaseModel):
+    rank: int
+    player_id: int
+    value: int
+
+
+class BonusComputedEffectOut(BaseModel):
+    key: str
+    metric_by_player: Dict[int, int]           # ex: victime => points perdus par joueur
+    ranking: List[BonusRankingItemOut]         # classement complet
+    points_delta_by_player: Dict[int, int]     # 1er=5, 2e=3, 3e=1 (ex-aequo gérés)
+
 
 class BonusEffectOut(BaseModel):
     bonus_in_game_id: int
     bonus: BonusPublicOut
-    # à définir plus tard
+
+    # effet calculé (None si bonus inconnu / pas supporté)
+    effect: Optional[BonusComputedEffectOut] = None
+
+    # delta en points lié au bonus (même info que effect.points_delta_by_player, gardé pour compat)
     points_delta_by_player: Dict[int, int] = {}
 
 
@@ -298,9 +314,12 @@ class GameResultsOut(BaseModel):
     game: GameMetaOut
     players: List[PlayerResultOut]
 
+    scores: Dict[int, int]               # score final (avant bonus)
+    scores_with_bonus: Dict[int, int]    # score final (avec bonus)
+
     # Historique
     turn_scores: List[TurnScoreOut]
     jokers_impacts: List[JokerImpactOut]
 
-    # Bonus (placeholder effets)
+    # Bonus (effets fin de partie)
     bonus: List[BonusEffectOut]

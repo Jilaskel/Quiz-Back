@@ -527,23 +527,14 @@ class GameService:
         round_to_player_id: Dict[int, int],
         round_to_round_number: Dict[int, int],
         with_history: bool,
+        with_bonus_metrics: bool = False,
     ) -> Tuple[
         Dict[int, int],               # final_scores
         List[Dict[str, Any]],         # turn_scores_out
         Dict[int, Dict[int, int]],    # joker_impacts_by_usage_id
         Dict[int, Dict[int, int]],    # round_deltas_by_round_id
+        Dict[str, Dict[int, int]],    # bonus_metrics
     ]:
-        """
-        Moteur unique de scoring.
-        - Calcule toujours les scores finaux.
-        - Si with_history=True :
-            - calcule aussi scores par tour
-            - calcule aussi delta par usage de joker
-            - calcule aussi delta par round (utile pour last_round_delta)
-
-        IMPORTANT : Les effets décalés (ex: Gamble) sont appliqués
-        au round où la case ciblée est résolue => automatiquement dans round_deltas.
-        """
         nb_players = len(players_out)
         all_player_ids = [p["id"] for p in players_out]
 
@@ -555,7 +546,7 @@ class GameService:
 
         jokers_by_round, gambles_by_grid = self._build_joker_indexes(used_rows)
 
-        # Tri stable seulement pour l'historique (scores finaux indépendants actuellement)
+        # Tri stable seulement pour l'historique
         cells = answered_cells
         if with_history:
             def _cell_sort_key(cell: Any):
@@ -573,6 +564,11 @@ class GameService:
             {u.usage_id: {pid: 0 for pid in all_player_ids} for u in used_rows}
             if with_history else {}
         )
+
+        # ✅ métriques bonus (collectées sur le même passage)
+        inflicted_loss_by_player: Dict[int, int] = {pid: 0 for pid in all_player_ids}   # Sniper
+        suffered_loss_by_player: Dict[int, int] = {pid: 0 for pid in all_player_ids}    # Victime
+        attempted_difficulty_by_player: Dict[int, int] = {pid: 0 for pid in all_player_ids}  # Game addict
 
         def add_score(pid: int, d: int) -> None:
             cumulative_scores[pid] = cumulative_scores.get(pid, 0) + d
@@ -598,6 +594,20 @@ class GameService:
                 return
             joker_impacts_by_usage_id.setdefault(usage_id, {p: 0 for p in all_player_ids})
             joker_impacts_by_usage_id[usage_id][pid] += d
+
+        # helpers bonus
+        def bonus_inflict_loss(attacker: int, victim: int, pts: int) -> None:
+            if not with_bonus_metrics:
+                return
+            if attacker == victim:
+                return  # on ignore les pertes auto-infligées pour Sniper/Victime
+            inflicted_loss_by_player[attacker] += pts
+            suffered_loss_by_player[victim] += pts
+
+        def bonus_attempt(player_id: int, pts: int) -> None:
+            if not with_bonus_metrics:
+                return
+            attempted_difficulty_by_player[player_id] += pts
 
         # -----------------------------
         # Main loop : 1 cell = 1 round résolu
@@ -630,6 +640,9 @@ class GameService:
             question_theme_id = getattr(cell, "question_theme_id", None)
             is_correct = bool(getattr(cell, "correct_answer", False))
 
+            # ✅ Game addict : tentative = non-skip, quel que soit correct/incorrect
+            bonus_attempt(answering_player_id, points)
+
             called_player_ids = self._called_player_ids_for_round(
                 jokers_by_round,
                 round_id=round_id,
@@ -641,9 +654,13 @@ class GameService:
             # -------- scoring normal
             if is_correct:
                 delta[answering_player_id] += points
+
+                # thème adverse => owner perd (sauf blocage)
                 if player_theme.get(answering_player_id) != question_theme_id:
                     if owner_id and not owner_penalty_blocked:
                         delta[owner_id] -= points
+                        # ✅ bonus sniper/victime : perte infligée à owner
+                        bonus_inflict_loss(answering_player_id, owner_id, points)
 
             # -------- x2
             if is_correct and self._has_round_joker(
@@ -653,9 +670,12 @@ class GameService:
                 joker_name=self.JOKER_X2,
             ):
                 delta[answering_player_id] += points
+
                 if player_theme.get(answering_player_id) != question_theme_id:
                     if owner_id and not owner_penalty_blocked:
                         delta[owner_id] -= points
+                        # ✅ bonus sniper/victime : perte infligée doublée (x2)
+                        bonus_inflict_loss(answering_player_id, owner_id, points)
 
                 if with_history:
                     for u in self._iter_round_jokers(
@@ -684,10 +704,14 @@ class GameService:
                     uid = u.usage_id
                     if is_correct:
                         for pid in all_player_ids:
-                            if pid != answering_player_id:
-                                delta[pid] -= points
-                                add_joker_delta(uid, pid, -points)
+                            if pid == answering_player_id:
+                                continue
+                            delta[pid] -= points
+                            # ✅ bonus sniper/victime : le joueur inflige une perte à tous les autres
+                            bonus_inflict_loss(answering_player_id, pid, points)
+                            add_joker_delta(uid, pid, -points)
                     else:
+                        # incorrect => perte auto-infligée => pas Sniper/Victime
                         delta[answering_player_id] -= points
                         add_joker_delta(uid, answering_player_id, -points)
 
@@ -706,9 +730,12 @@ class GameService:
                     add_joker_delta(uid, u.target_player_id, +points)
                 else:
                     delta[u.target_player_id] -= points
+                    # ✅ bonus sniper/victime : si incorrect, l'ami perd à cause du joueur
+                    bonus_inflict_loss(answering_player_id, u.target_player_id, points)
                     add_joker_delta(uid, u.target_player_id, -points)
 
-            # -------- gamble (déclenché au moment où la case ciblée est résolue)
+            # -------- gamble (déclenché sur résolution de la case ciblée)
+            # (ne compte pas pour Sniper/Victime car n'inflige pas une perte à un autre joueur)
             for u in gambles_by_grid.get(getattr(cell, "id", None), []):
                 gambler_id = u.using_player_id
                 uid = u.usage_id
@@ -745,7 +772,13 @@ class GameService:
                     }
                 )
 
-        return cumulative_scores, turn_scores_out, joker_impacts_by_usage_id, round_deltas_by_round_id
+        bonus_metrics = {
+            "sniper": inflicted_loss_by_player,
+            "victime": suffered_loss_by_player,
+            "game_addict": attempted_difficulty_by_player,
+        }
+
+        return cumulative_scores, turn_scores_out, joker_impacts_by_usage_id, round_deltas_by_round_id, bonus_metrics
 
     # ---------------------------------------------------------------------
     # Scoring
@@ -765,7 +798,7 @@ class GameService:
         used_rows = self.jokers_used.list_used_for_game_for_scoring(game_id)
         round_to_player_id, round_to_round_number = self._build_round_indexes(game_id)
 
-        scores, _, _, round_deltas_by_round_id = self._score_timeline(
+        scores, _, _, round_deltas_by_round_id, _ = self._score_timeline(
             game_id=game_id,
             players_out=players_out_min,
             answered_cells=answered_cells,
@@ -998,6 +1031,9 @@ class GameService:
         if nb_players <= 0:
             raise ConflictError("GAME_HAS_NO_PLAYERS")
 
+        all_player_ids = [p["id"] for p in players_out]
+        zeros_by_player = {pid: 0 for pid in all_player_ids}
+
         # -----------------------------
         # Data existante (réutilisation)
         # -----------------------------
@@ -1005,8 +1041,8 @@ class GameService:
         used_rows = self.jokers_used.list_used_for_game_for_scoring(game.id)
         round_to_player_id, round_to_round_number = self._build_round_indexes(game.id)
 
-        # ✅ Moteur unique : scores finaux + scores par tour + deltas jokers
-        final_scores, turn_scores_out, joker_impacts_by_usage_id, _ = self._score_timeline(
+        # ✅ Moteur unique : scores finaux + scores par tour + deltas jokers + métriques bonus
+        final_scores, turn_scores_out, joker_impacts_by_usage_id, _, bonus_metrics = self._score_timeline(
             game_id=game.id,
             players_out=players_out,
             answered_cells=answered_cells,
@@ -1014,6 +1050,7 @@ class GameService:
             round_to_player_id=round_to_player_id,
             round_to_round_number=round_to_round_number,
             with_history=True,
+            with_bonus_metrics=True,
         )
 
         # -----------------------------
@@ -1041,26 +1078,95 @@ class GameService:
                     "joker_name": u.joker_name,
                     "target_player_id": u.target_player_id,
                     "target_grid_id": u.target_grid_id,
-                    "points_delta_by_player": joker_impacts_by_usage_id.get(
-                        u.usage_id,
-                        {p["id"]: 0 for p in players_out},
-                    ),
+                    "points_delta_by_player": joker_impacts_by_usage_id.get(u.usage_id, dict(zeros_by_player)),
                 }
             )
 
         # -----------------------------
-        # bonus attachés (placeholder effets)
+        # bonus attachés (effets fin de partie)
         # -----------------------------
-        all_player_ids = [p["id"] for p in players_out]
+        BONUS_RANK_POINTS = {1: 5, 2: 3, 3: 1}
+
+        def bonus_key_from_name(name: str) -> Optional[str]:
+            n = (name or "").strip().lower()
+            if n == "sniper":
+                return "sniper"
+            if n == "victime":
+                return "victime"
+            if n == "game addict":
+                return "game_addict"
+            return None
+
+        def _rank_points_from_metric(metric: Dict[int, int]) -> Tuple[List[Dict[str, Any]], Dict[int, int]]:
+            """
+            Classement "competition ranking":
+            ex: [10,10,7,7,2] => ranks [1,1,3,3,5]
+            Points : 1er=5, 2e=3, 3e=1
+            """
+            items = sorted(metric.items(), key=lambda kv: (-kv[1], kv[0]))
+
+            ranking: List[Dict[str, Any]] = []
+            points_delta = {pid: 0 for pid in metric.keys()}
+
+            prev_value = None
+            rank = 0
+            index = 0
+            for pid, value in items:
+                index += 1
+                if prev_value is None or value != prev_value:
+                    rank = index
+                    prev_value = value
+
+                ranking.append({"rank": rank, "player_id": pid, "value": value})
+
+                pts = BONUS_RANK_POINTS.get(rank, 0)
+                if pts:
+                    points_delta[pid] += pts
+
+            return ranking, points_delta
+
         bonus_rows = self.bonus_in_game.list_for_game(game.id)
-        bonus_out = [
-            {
-                "bonus_in_game_id": r.bonus_in_game_id,
-                "bonus": {"id": r.bonus_id, "name": r.name, "description": r.description},
-                "points_delta_by_player": {pid: 0 for pid in all_player_ids},  # TODO
-            }
-            for r in bonus_rows
-        ]
+        bonus_out: List[Dict[str, Any]] = []
+
+        bonus_total_delta = {pid: 0 for pid in all_player_ids}
+
+        for r in bonus_rows:
+            key = bonus_key_from_name(getattr(r, "name", None))
+            metric = bonus_metrics.get(key, None) if key else None
+
+            effect = None
+            points_delta_by_player = dict(zeros_by_player)
+
+            if key and metric is not None:
+                metric_full = {pid: int(metric.get(pid, 0)) for pid in all_player_ids}
+                ranking, points_delta_by_player = _rank_points_from_metric(metric_full)
+
+                effect = {
+                    "key": key,
+                    # ✅ métriques brutes (ex: victime => points perdus)
+                    "metric_by_player": metric_full,
+                    # ✅ classement exploitable front
+                    "ranking": ranking,
+                    # ✅ points bonus (5/3/1)
+                    "points_delta_by_player": dict(points_delta_by_player),
+                }
+
+                for pid, d in points_delta_by_player.items():
+                    bonus_total_delta[pid] += d
+
+            bonus_out.append(
+                {
+                    "bonus_in_game_id": r.bonus_in_game_id,
+                    "bonus": {"id": r.bonus_id, "name": r.name, "description": r.description},
+                    "effect": effect,
+                    "points_delta_by_player": dict(points_delta_by_player),
+                }
+            )
+
+        scores_with_bonus = {
+            pid: int(final_scores.get(pid, 0)) + int(bonus_total_delta.get(pid, 0))
+            for pid in all_player_ids
+        }
 
         return {
             "game": {
@@ -1073,7 +1179,8 @@ class GameService:
                 "owner_id": game.owner_id,
             },
             "players": players_out,
-            "scores": final_scores,  # ✅ score final (cohérent avec _compute_scores)
+            "scores": final_scores,  # score final (avant bonus)
+            "scores_with_bonus": scores_with_bonus,  # ✅ score final (avec bonus)
             "turn_scores": turn_scores_out,
             "jokers_impacts": jokers_impacts_out,
             "bonus": bonus_out,
