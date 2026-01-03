@@ -502,6 +502,7 @@ class GameService:
             is_correct: bool,
             points: int,
             question_theme_id: int,
+            owner_penalty_blocked: bool,
         ) -> None:
             if not is_correct:
                 return
@@ -514,8 +515,9 @@ class GameService:
             # si thème adverse => owner perd aussi les points doublés
             if player_theme.get(answering_player_id) != question_theme_id:
                 owner_id = owner_of_theme(question_theme_id)
-                if owner_id:
+                if owner_id and not owner_penalty_blocked:
                     scores[owner_id] -= points
+
 
         def _apply_all_in(
             *,
@@ -547,12 +549,15 @@ class GameService:
             is_correct: bool,
             points: int,
         ) -> None:
-            # Si incorrect => le joueur ciblé perd points
-            if is_correct:
-                return
-
             for u in iter_round_jokers(round_id, answering_player_id, JOKER_APPEL):
-                if u.target_player_id:
+                if not u.target_player_id:
+                    continue
+
+                if is_correct:
+                    # règle (1) : correct => les deux gagnent
+                    scores[u.target_player_id] += points
+                else:
+                    # règle (1) : incorrect => l'ami perd
                     scores[u.target_player_id] -= points
 
         def _apply_gamble(
@@ -580,6 +585,10 @@ class GameService:
         # ------------------------------------------------------------------
 
         for cell in answered:
+            # Skip => aucun effet (score + jokers)
+            if bool(cell.skip_answer):
+                continue
+
             round_id = cell.round_id
             if round_id is None or round_id <= 0:
                 continue
@@ -591,9 +600,17 @@ class GameService:
             points = int(cell.question_points or 0)
             question_theme_id = cell.question_theme_id
 
-            # Skip => aucun effet (score + jokers)
-            if bool(cell.skip_answer):
-                continue
+            # ami(s) appelé(s) sur ce round (souvent 0 ou 1)
+            called_player_ids = [
+                u.target_player_id
+                for u in iter_round_jokers(round_id, answering_player_id, JOKER_APPEL)
+                if u.target_player_id
+            ]
+
+            # si la question est d'un thème adverse, l'owner qui devrait perdre des points
+            # MAIS si cet owner est appelé, on annule cette pénalité
+            owner_id = owner_of_theme(question_theme_id)
+            owner_penalty_blocked = (owner_id is not None and owner_id in called_player_ids)
 
             is_correct = bool(cell.correct_answer)
 
@@ -603,8 +620,7 @@ class GameService:
                     scores[answering_player_id] += points
                 else:
                     scores[answering_player_id] += points
-                    owner_id = owner_of_theme(question_theme_id)
-                    if owner_id:
+                    if owner_id and not owner_penalty_blocked:
                         scores[owner_id] -= points
             else:
                 # incorrect => 0 (règle actuelle)
@@ -617,6 +633,7 @@ class GameService:
                 is_correct=is_correct,
                 points=points,
                 question_theme_id=question_theme_id,
+                owner_penalty_blocked=owner_penalty_blocked,
             )
             _apply_all_in(
                 round_id=round_id,
