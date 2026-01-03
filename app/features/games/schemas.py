@@ -101,6 +101,7 @@ class GridCellOut(BaseModel):
     row: int
     column: int
     round_id: Optional[int] = None
+    player_id: Optional[int] = None
     correct_answer: bool
     skip_answer: bool
     question: QuestionInGridOut

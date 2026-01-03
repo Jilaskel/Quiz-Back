@@ -332,6 +332,10 @@ class GameService:
 
         players = self.players.list_by_game(game.id)
 
+        # ✅ Mapping round_id -> player_id (pour savoir qui a répondu)
+        rounds_flat = self.rounds.list_by_game(game.id)
+        round_to_player_id: Dict[int, int] = {r.round_id: r.player_id for r in rounds_flat}
+
         # 1) grille complète : cases + question(theme+points)
         grid_rows = self.grids.list_grid_questions_with_theme_and_points(game.id)
         grid = [
@@ -340,6 +344,7 @@ class GameService:
                 "row": r.row,
                 "column": r.column,
                 "round_id": r.round_id,
+                "player_id": round_to_player_id.get(r.round_id) if r.round_id else None,
                 "correct_answer": r.correct_answer,
                 "skip_answer": r.skip_answer,
                 "question": {
