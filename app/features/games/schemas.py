@@ -140,6 +140,10 @@ class GameMetaOut(BaseModel):
     finished: bool
     owner_id: int
 
+class LastRoundDeltaOut(BaseModel):
+    round_id: int
+    round_number: int
+    delta: Dict[int, int]  # player_id -> points delta
 
 class GameStateOut(BaseModel):
     game: GameMetaOut
@@ -149,6 +153,7 @@ class GameStateOut(BaseModel):
     available_jokers: Dict[int, List[JokerAvailabilityOut]] = {}
     bonus: List[BonusInGameOut] = []
     scores: Dict[int, int]  # player_id -> points
+    last_round_delta: Optional[LastRoundDeltaOut] = None
 
 # -----------------------------
 # Rounds
@@ -164,7 +169,6 @@ class RoundCreateOut(BaseModel):
     id: int
     player_id: int
     round_number: int
-
 
 # -----------------------------
 # Answers (sans jokers)
@@ -245,3 +249,58 @@ class GameSetupSuggestOut(BaseModel):
     general_theme_ids: List[int]
     joker_ids: List[int]
     bonus_ids: List[int]
+
+# -----------------------------
+# Fin de partie
+# -----------------------------
+class PlayerResultOut(BaseModel):
+    id: int
+    name: str
+    order: int
+    theme: ThemeOut
+    color: ColorOut
+
+
+class JokerImpactOut(BaseModel):
+    usage_id: int
+    turn_number: int
+    round_id: int
+    round_number: int
+
+    using_player_id: int
+    joker_in_game_id: int
+    joker_id: int
+    joker_name: str
+
+    target_player_id: Optional[int] = None
+    target_grid_id: Optional[int] = None
+
+    # impact en points attribué au joker (par player_id)
+    points_delta_by_player: Dict[int, int]
+
+
+class TurnScoreOut(BaseModel):
+    turn_number: int
+    # score cumulé à la fin du tour
+    scores: Dict[int, int]
+    # delta uniquement sur ce tour
+    delta: Dict[int, int]
+
+
+class BonusEffectOut(BaseModel):
+    bonus_in_game_id: int
+    bonus: BonusPublicOut
+    # à définir plus tard
+    points_delta_by_player: Dict[int, int] = {}
+
+
+class GameResultsOut(BaseModel):
+    game: GameMetaOut
+    players: List[PlayerResultOut]
+
+    # Historique
+    turn_scores: List[TurnScoreOut]
+    jokers_impacts: List[JokerImpactOut]
+
+    # Bonus (placeholder effets)
+    bonus: List[BonusEffectOut]

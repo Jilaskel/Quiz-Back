@@ -24,7 +24,8 @@ from app.features.games.schemas import (
     JokerUseOut,
     ColorPublicOut,
     GameSetupSuggestOut,
-    GameSetupSuggestIn
+    GameSetupSuggestIn,
+    GameResultsOut,
 )
 from app.features.games.services import GameService, PermissionError, ConflictError
 from app.features.questions.services import QuestionService
@@ -276,3 +277,23 @@ def get_question_by_id(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Question not found")
     except PermissionError:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+@router.get(
+    "/{game_url}/results",
+    summary="Récupérer les résultats et l'historique d'une partie",
+    response_model=GameResultsOut,
+    responses={403: {"description": "Forbidden"}},
+)
+def get_results(
+    game_url: str = Path(..., min_length=3, max_length=120),
+    access_token: str = Depends(get_access_token_from_bearer),
+    auth_svc: AuthService = Depends(get_auth_service),
+    svc: GameService = Depends(get_game_service),
+):
+    user_id, is_admin = _get_user_ctx(access_token, auth_svc)
+    try:
+        return svc.get_game_results(game_url, user_id=user_id, is_admin=is_admin)
+    except PermissionError:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    except LookupError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")

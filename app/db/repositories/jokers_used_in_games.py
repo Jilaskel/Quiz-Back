@@ -14,9 +14,14 @@ from app.db.models.players import Player
 
 @dataclass(frozen=True)
 class JokerUsedForScoringRow:
+    usage_id: int
     round_id: int
     using_player_id: int
+
+    joker_in_game_id: int
+    joker_id: int
     joker_name: str
+
     target_player_id: Optional[int]
     target_grid_id: Optional[int]
 
@@ -78,17 +83,25 @@ class JokerUsedInGameRepository(BaseRepository[JokerUsedInGame]):
 
     def list_used_for_game_for_scoring(self, game_id: int) -> List[JokerUsedForScoringRow]:
         """
-        Retourne les jokers utilisés dans une partie, enrichis pour le scoring :
+        Retourne les jokers utilisés dans une partie, enrichis pour le scoring + results :
+        - usage_id : JokerUsedInGame.id
         - round_id : round où le joker a été utilisé
-        - using_player_id : joueur de ce round
+        - using_player_id : joueur qui utilise (player du round)
+        - joker_in_game_id : instance de joker attachée à la partie
+        - joker_id : id du joker (catalog)
         - joker_name : Joker.name (doit correspondre au YAML.name)
         - target_player_id / target_grid_id : cibles éventuelles
         """
         stmt = (
             select(
+                JokerUsedInGame.id,
                 JokerUsedInGame.round_id,
                 Round.player_id,
+
+                JokerUsedInGame.joker_in_game_id,
+                JokerInGame.joker_id,
                 Joker.name,
+
                 JokerUsedInGame.target_player_id,
                 JokerUsedInGame.target_grid_id,
             )
@@ -102,14 +115,27 @@ class JokerUsedInGameRepository(BaseRepository[JokerUsedInGame]):
 
         return [
             JokerUsedForScoringRow(
+                usage_id=usage_id,
                 round_id=round_id,
                 using_player_id=using_player_id,
+                joker_in_game_id=joker_in_game_id,
+                joker_id=joker_id,
                 joker_name=joker_name,
                 target_player_id=target_player_id,
                 target_grid_id=target_grid_id,
             )
-            for (round_id, using_player_id, joker_name, target_player_id, target_grid_id) in rows
+            for (
+                usage_id,
+                round_id,
+                using_player_id,
+                joker_in_game_id,
+                joker_id,
+                joker_name,
+                target_player_id,
+                target_grid_id,
+            ) in rows
         ]
+
 
     def list_used_joker_in_game_ids_for_player_before_round(
         self, game_id: int, player_id: int, round_id: int

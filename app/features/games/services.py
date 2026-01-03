@@ -74,6 +74,15 @@ class GameService:
         self.questions = question_repo
         self.QUESTIONS_PAGE_SIZE = 500
 
+        # ---------------------------------------------------------------------
+        # Constantes jokers (utilisées partout)
+        # ---------------------------------------------------------------------
+        self.JOKER_X2 = "x2"
+        self.JOKER_ALL_IN = "All-In"
+        self.JOKER_FLASH = "Flash"
+        self.JOKER_GAMBLE = "Gamble"
+        self.JOKER_APPEL = "Appel à un ami"
+
     # -----------------------------------
     # Helpers: auth & ownership
     # -----------------------------------
@@ -403,7 +412,7 @@ class GameService:
             ]
 
         # 4) scores
-        scores = self._compute_scores(game_id=game.id, players=players)
+        scores, last_round_delta = self._compute_scores(game_id=game.id, players=players)
 
         # 5) bonus attachés au game
         bonus = [
@@ -439,238 +448,346 @@ class GameService:
             "available_jokers": available_jokers,
             "bonus": bonus,
             "scores": scores,
+            "last_round_delta": last_round_delta,
         }
 
     # ---------------------------------------------------------------------
-    # Scoring
+    # Helpers scoring (factorisés)
     # ---------------------------------------------------------------------
 
-    def _compute_scores(self, game_id: int, players) -> Dict[int, int]:
-        """
-        Base :
-        - skip => 0 et aucun effet joker
-        - incorrect => 0 (règle actuelle)
-        - correct :
-            - propre thème : +points
-            - thème adverse : joueur +points, owner -points
-
-        Jokers :
-        - x2 : double l'impact de la question jouée sur le round où il est joué (si correct)
-        - all_in : sur cette question :
-            - correct : tous les adversaires perdent points
-            - incorrect : le joueur perd points
-        - flash : aucun impact score
-        - gamble : cible une case -> s'applique quand cette case est résolue (non skip)
-            - correct : le parieur gagne points
-            - incorrect : le parieur perd points
-        - appel à un ami : sur cette question, si incorrect -> target perd points
-        """
-        JOKER_X2 = "x2"
-        JOKER_ALL_IN = "All-In"
-        JOKER_FLASH = "Flash"
-        JOKER_GAMBLE = "Gamble"
-        JOKER_APPEL = "Appel à un ami"
-
-        scores: Dict[int, int] = {p.id: 0 for p in players}
-        player_theme: Dict[int, int] = {p.id: p.theme_id for p in players}
-        theme_owner: Dict[int, int] = {p.theme_id: p.id for p in players}
-        all_player_ids = [p.id for p in players]
-
-        answered = self.grids.list_answered_cells_for_scoring(game_id)
-
+    def _build_round_indexes(self, game_id: int) -> Tuple[Dict[int, int], Dict[int, int]]:
         rounds_flat = self.rounds.list_by_game(game_id)
-        round_to_player: Dict[int, int] = {r.round_id: r.player_id for r in rounds_flat}
+        round_to_player_id = {r.round_id: r.player_id for r in rounds_flat}
+        round_to_round_number = {r.round_id: r.round_number for r in rounds_flat}
+        return round_to_player_id, round_to_round_number
 
-        # jokers used enrichis (round_id, using_player_id, joker_name, targets...)
-        used_rows = self.jokers_used.list_used_for_game_for_scoring(game_id)
-
+    def _build_joker_indexes(self, used_rows: List[Any]) -> Tuple[DefaultDict[int, List[Any]], DefaultDict[int, List[Any]]]:
         jokers_by_round: DefaultDict[int, List[Any]] = defaultdict(list)
         gambles_by_grid: DefaultDict[int, List[Any]] = defaultdict(list)
 
         for u in used_rows:
             jokers_by_round[u.round_id].append(u)
-            if u.joker_name == JOKER_GAMBLE and u.target_grid_id:
+            if u.joker_name == self.JOKER_GAMBLE and u.target_grid_id:
                 gambles_by_grid[u.target_grid_id].append(u)
+
+        return jokers_by_round, gambles_by_grid
+
+    def _iter_round_jokers(
+        self,
+        jokers_by_round: DefaultDict[int, List[Any]],
+        *,
+        round_id: int,
+        using_player_id: int,
+        joker_name: str,
+    ) -> Iterable[Any]:
+        for u in jokers_by_round.get(round_id, []):
+            if u.using_player_id == using_player_id and u.joker_name == joker_name:
+                yield u
+
+    def _has_round_joker(
+        self,
+        jokers_by_round: DefaultDict[int, List[Any]],
+        *,
+        round_id: int,
+        using_player_id: int,
+        joker_name: str,
+    ) -> bool:
+        return any(True for _ in self._iter_round_jokers(
+            jokers_by_round,
+            round_id=round_id,
+            using_player_id=using_player_id,
+            joker_name=joker_name,
+        ))
+
+    def _called_player_ids_for_round(
+        self,
+        jokers_by_round: DefaultDict[int, List[Any]],
+        *,
+        round_id: int,
+        answering_player_id: int,
+    ) -> List[int]:
+        return [
+            u.target_player_id
+            for u in self._iter_round_jokers(
+                jokers_by_round,
+                round_id=round_id,
+                using_player_id=answering_player_id,
+                joker_name=self.JOKER_APPEL,
+            )
+            if u.target_player_id
+        ]
+
+    def _score_timeline(
+        self,
+        *,
+        game_id: int,
+        players_out: List[Dict[str, Any]],
+        answered_cells: List[Any],
+        used_rows: List[Any],
+        round_to_player_id: Dict[int, int],
+        round_to_round_number: Dict[int, int],
+        with_history: bool,
+    ) -> Tuple[
+        Dict[int, int],               # final_scores
+        List[Dict[str, Any]],         # turn_scores_out
+        Dict[int, Dict[int, int]],    # joker_impacts_by_usage_id
+        Dict[int, Dict[int, int]],    # round_deltas_by_round_id
+    ]:
+        """
+        Moteur unique de scoring.
+        - Calcule toujours les scores finaux.
+        - Si with_history=True :
+            - calcule aussi scores par tour
+            - calcule aussi delta par usage de joker
+            - calcule aussi delta par round (utile pour last_round_delta)
+
+        IMPORTANT : Les effets décalés (ex: Gamble) sont appliqués
+        au round où la case ciblée est résolue => automatiquement dans round_deltas.
+        """
+        nb_players = len(players_out)
+        all_player_ids = [p["id"] for p in players_out]
+
+        player_theme = {p["id"]: p["theme"]["id"] for p in players_out}
+        theme_owner = {p["theme"]["id"]: p["id"] for p in players_out}
 
         def owner_of_theme(theme_id: int) -> Optional[int]:
             return theme_owner.get(theme_id)
 
-        def iter_round_jokers(round_id: int, using_player_id: int, joker_name: str) -> Iterable[Any]:
-            for u in jokers_by_round.get(round_id, []):
-                if u.using_player_id == using_player_id and u.joker_name == joker_name:
-                    yield u
+        jokers_by_round, gambles_by_grid = self._build_joker_indexes(used_rows)
 
-        def has_round_joker(round_id: int, using_player_id: int, joker_name: str) -> bool:
-            return any(True for _ in iter_round_jokers(round_id, using_player_id, joker_name))
+        # Tri stable seulement pour l'historique (scores finaux indépendants actuellement)
+        cells = answered_cells
+        if with_history:
+            def _cell_sort_key(cell: Any):
+                rn = round_to_round_number.get(getattr(cell, "round_id", None) or -1, 10**9)
+                return (rn, int(getattr(cell, "id", 0)))
+            cells = sorted(answered_cells, key=_cell_sort_key)
 
-        # ------------------------------------------------------------------
-        # Joker functions (1 fonction / joker)
-        # ------------------------------------------------------------------
+        cumulative_scores: Dict[int, int] = {pid: 0 for pid in all_player_ids}
 
-        def _apply_x2(
-            *,
-            round_id: int,
-            answering_player_id: int,
-            is_correct: bool,
-            points: int,
-            question_theme_id: int,
-            owner_penalty_blocked: bool,
-        ) -> None:
-            if not is_correct:
+        turn_deltas: Dict[int, Dict[int, int]] = {}
+        turn_cumulatives: Dict[int, Dict[int, int]] = {}
+        round_deltas_by_round_id: Dict[int, Dict[int, int]] = {}
+
+        joker_impacts_by_usage_id: Dict[int, Dict[int, int]] = (
+            {u.usage_id: {pid: 0 for pid in all_player_ids} for u in used_rows}
+            if with_history else {}
+        )
+
+        def add_score(pid: int, d: int) -> None:
+            cumulative_scores[pid] = cumulative_scores.get(pid, 0) + d
+
+        def ensure_turn(turn_number: int) -> None:
+            if not with_history:
                 return
-            if not has_round_joker(round_id, answering_player_id, JOKER_X2):
+            turn_deltas.setdefault(turn_number, {pid: 0 for pid in all_player_ids})
+
+        def add_turn_delta(turn_number: int, pid: int, d: int) -> None:
+            if not with_history:
                 return
+            ensure_turn(turn_number)
+            turn_deltas[turn_number][pid] += d
 
-            # "double l'impact" => on ajoute un delta identique au delta normal
-            scores[answering_player_id] += points
-
-            # si thème adverse => owner perd aussi les points doublés
-            if player_theme.get(answering_player_id) != question_theme_id:
-                owner_id = owner_of_theme(question_theme_id)
-                if owner_id and not owner_penalty_blocked:
-                    scores[owner_id] -= points
-
-
-        def _apply_all_in(
-            *,
-            round_id: int,
-            answering_player_id: int,
-            is_correct: bool,
-            points: int,
-        ) -> None:
-            if not has_round_joker(round_id, answering_player_id, JOKER_ALL_IN):
+        def snapshot_turn(turn_number: int) -> None:
+            if not with_history:
                 return
+            turn_cumulatives[turn_number] = dict(cumulative_scores)
 
+        def add_joker_delta(usage_id: int, pid: int, d: int) -> None:
+            if not with_history:
+                return
+            joker_impacts_by_usage_id.setdefault(usage_id, {p: 0 for p in all_player_ids})
+            joker_impacts_by_usage_id[usage_id][pid] += d
+
+        # -----------------------------
+        # Main loop : 1 cell = 1 round résolu
+        # -----------------------------
+        for cell in cells:
+            round_id = getattr(cell, "round_id", None)
+            if not round_id:
+                continue
+
+            answering_player_id = round_to_player_id.get(round_id)
+            if not answering_player_id:
+                continue
+
+            round_number = int(round_to_round_number.get(round_id, 1))
+            turn_number = ((round_number - 1) // max(nb_players, 1)) + 1
+
+            ensure_turn(turn_number)
+
+            # delta net de CE round (scores + jokers + effets décalés)
+            delta: Dict[int, int] = {pid: 0 for pid in all_player_ids}
+
+            # Skip => aucun effet (ni jokers, ni gamble)
+            if bool(getattr(cell, "skip_answer", False)):
+                if with_history:
+                    round_deltas_by_round_id[round_id] = dict(delta)
+                    snapshot_turn(turn_number)
+                continue
+
+            points = int(getattr(cell, "question_points", 0) or 0)
+            question_theme_id = getattr(cell, "question_theme_id", None)
+            is_correct = bool(getattr(cell, "correct_answer", False))
+
+            called_player_ids = self._called_player_ids_for_round(
+                jokers_by_round,
+                round_id=round_id,
+                answering_player_id=answering_player_id,
+            )
+            owner_id = owner_of_theme(question_theme_id) if question_theme_id is not None else None
+            owner_penalty_blocked = (owner_id is not None and owner_id in called_player_ids)
+
+            # -------- scoring normal
             if is_correct:
-                for pid in all_player_ids:
-                    if pid != answering_player_id:
-                        scores[pid] -= points
-            else:
-                scores[answering_player_id] -= points
+                delta[answering_player_id] += points
+                if player_theme.get(answering_player_id) != question_theme_id:
+                    if owner_id and not owner_penalty_blocked:
+                        delta[owner_id] -= points
 
-        def _apply_flash(*, round_id: int, answering_player_id: int) -> None:
-            # Pas d'impact score
-            _ = round_id
-            _ = answering_player_id
-            return
+            # -------- x2
+            if is_correct and self._has_round_joker(
+                jokers_by_round,
+                round_id=round_id,
+                using_player_id=answering_player_id,
+                joker_name=self.JOKER_X2,
+            ):
+                delta[answering_player_id] += points
+                if player_theme.get(answering_player_id) != question_theme_id:
+                    if owner_id and not owner_penalty_blocked:
+                        delta[owner_id] -= points
 
-        def _apply_appel_a_un_ami(
-            *,
-            round_id: int,
-            answering_player_id: int,
-            is_correct: bool,
-            points: int,
-        ) -> None:
-            for u in iter_round_jokers(round_id, answering_player_id, JOKER_APPEL):
+                if with_history:
+                    for u in self._iter_round_jokers(
+                        jokers_by_round,
+                        round_id=round_id,
+                        using_player_id=answering_player_id,
+                        joker_name=self.JOKER_X2,
+                    ):
+                        add_joker_delta(u.usage_id, answering_player_id, +points)
+                        if owner_id and not owner_penalty_blocked:
+                            add_joker_delta(u.usage_id, owner_id, -points)
+
+            # -------- all-in
+            if self._has_round_joker(
+                jokers_by_round,
+                round_id=round_id,
+                using_player_id=answering_player_id,
+                joker_name=self.JOKER_ALL_IN,
+            ):
+                for u in self._iter_round_jokers(
+                    jokers_by_round,
+                    round_id=round_id,
+                    using_player_id=answering_player_id,
+                    joker_name=self.JOKER_ALL_IN,
+                ):
+                    uid = u.usage_id
+                    if is_correct:
+                        for pid in all_player_ids:
+                            if pid != answering_player_id:
+                                delta[pid] -= points
+                                add_joker_delta(uid, pid, -points)
+                    else:
+                        delta[answering_player_id] -= points
+                        add_joker_delta(uid, answering_player_id, -points)
+
+            # -------- appel à un ami
+            for u in self._iter_round_jokers(
+                jokers_by_round,
+                round_id=round_id,
+                using_player_id=answering_player_id,
+                joker_name=self.JOKER_APPEL,
+            ):
                 if not u.target_player_id:
                     continue
-
+                uid = u.usage_id
                 if is_correct:
-                    # règle (1) : correct => les deux gagnent
-                    scores[u.target_player_id] += points
+                    delta[u.target_player_id] += points
+                    add_joker_delta(uid, u.target_player_id, +points)
                 else:
-                    # règle (1) : incorrect => l'ami perd
-                    scores[u.target_player_id] -= points
+                    delta[u.target_player_id] -= points
+                    add_joker_delta(uid, u.target_player_id, -points)
 
-        def _apply_gamble(
-            *,
-            grid_id: int,
-            is_correct: bool,
-            points: int,
-            answering_player_id: int,
-        ) -> None:
-            for u in gambles_by_grid.get(grid_id, []):
+            # -------- gamble (déclenché au moment où la case ciblée est résolue)
+            for u in gambles_by_grid.get(getattr(cell, "id", None), []):
                 gambler_id = u.using_player_id
+                uid = u.usage_id
 
-                # ✅ Si le parieur répond lui-même à la question, pas d'effet Gamble
                 if gambler_id == answering_player_id:
                     continue
 
                 if is_correct:
-                    scores[gambler_id] += points
+                    delta[gambler_id] += points
+                    add_joker_delta(uid, gambler_id, +points)
                 else:
-                    scores[gambler_id] -= points
+                    delta[gambler_id] -= points
+                    add_joker_delta(uid, gambler_id, -points)
 
+            # -------- appliquer delta au cumul + historique
+            for pid, d in delta.items():
+                if d:
+                    add_score(pid, d)
+                    add_turn_delta(turn_number, pid, d)
 
-        # ------------------------------------------------------------------
-        # Main loop
-        # ------------------------------------------------------------------
+            if with_history:
+                round_deltas_by_round_id[round_id] = dict(delta)
+                snapshot_turn(turn_number)
 
-        for cell in answered:
-            # Skip => aucun effet (score + jokers)
-            if bool(cell.skip_answer):
-                continue
+        # construire turn_scores_out
+        turn_scores_out: List[Dict[str, Any]] = []
+        if with_history:
+            for t in sorted(turn_cumulatives.keys()):
+                turn_scores_out.append(
+                    {
+                        "turn_number": t,
+                        "scores": turn_cumulatives[t],
+                        "delta": turn_deltas.get(t, {pid: 0 for pid in all_player_ids}),
+                    }
+                )
 
-            round_id = cell.round_id
-            if round_id is None or round_id <= 0:
-                continue
+        return cumulative_scores, turn_scores_out, joker_impacts_by_usage_id, round_deltas_by_round_id
 
-            answering_player_id = round_to_player.get(round_id)
-            if not answering_player_id:
-                continue
+    # ---------------------------------------------------------------------
+    # Scoring
+    # ---------------------------------------------------------------------
 
-            points = int(cell.question_points or 0)
-            question_theme_id = cell.question_theme_id
+    def _compute_scores(self, game_id: int, players) -> Tuple[Dict[int, int], Optional[Dict[str, Any]]]:
+        """
+        Wrapper sur le moteur unique _score_timeline.
+        Retourne :
+        - scores finaux (cumulés)
+        - last_round_delta : delta net du dernier round résolu (incluant Gamble au bon moment)
+        """
+        # players_out minimal requis par _score_timeline
+        players_out_min = [{"id": p.id, "theme": {"id": p.theme_id}} for p in players]
 
-            # ami(s) appelé(s) sur ce round (souvent 0 ou 1)
-            called_player_ids = [
-                u.target_player_id
-                for u in iter_round_jokers(round_id, answering_player_id, JOKER_APPEL)
-                if u.target_player_id
-            ]
+        answered_cells = self.grids.list_answered_cells_for_scoring(game_id)
+        used_rows = self.jokers_used.list_used_for_game_for_scoring(game_id)
+        round_to_player_id, round_to_round_number = self._build_round_indexes(game_id)
 
-            # si la question est d'un thème adverse, l'owner qui devrait perdre des points
-            # MAIS si cet owner est appelé, on annule cette pénalité
-            owner_id = owner_of_theme(question_theme_id)
-            owner_penalty_blocked = (owner_id is not None and owner_id in called_player_ids)
+        scores, _, _, round_deltas_by_round_id = self._score_timeline(
+            game_id=game_id,
+            players_out=players_out_min,
+            answered_cells=answered_cells,
+            used_rows=used_rows,
+            round_to_player_id=round_to_player_id,
+            round_to_round_number=round_to_round_number,
+            with_history=True,  # on veut round_deltas_by_round_id
+        )
 
-            is_correct = bool(cell.correct_answer)
-
-            # 1) scoring normal
-            if is_correct:
-                if player_theme.get(answering_player_id) == question_theme_id:
-                    scores[answering_player_id] += points
-                else:
-                    scores[answering_player_id] += points
-                    if owner_id and not owner_penalty_blocked:
-                        scores[owner_id] -= points
-            else:
-                # incorrect => 0 (règle actuelle)
-                pass
-
-            # 2) apply jokers (round-based)
-            _apply_x2(
-                round_id=round_id,
-                answering_player_id=answering_player_id,
-                is_correct=is_correct,
-                points=points,
-                question_theme_id=question_theme_id,
-                owner_penalty_blocked=owner_penalty_blocked,
+        last_round_delta = None
+        if round_deltas_by_round_id:
+            last_round_id = max(
+                round_deltas_by_round_id.keys(),
+                key=lambda rid: round_to_round_number.get(rid, 0),
             )
-            _apply_all_in(
-                round_id=round_id,
-                answering_player_id=answering_player_id,
-                is_correct=is_correct,
-                points=points,
-            )
-            _apply_flash(round_id=round_id, answering_player_id=answering_player_id)
-            _apply_appel_a_un_ami(
-                round_id=round_id,
-                answering_player_id=answering_player_id,
-                is_correct=is_correct,
-                points=points,
-            )
+            last_round_delta = {
+                "round_id": last_round_id,
+                "round_number": int(round_to_round_number.get(last_round_id, 1)),
+                "delta": round_deltas_by_round_id[last_round_id],
+            }
 
-            # 3) gamble (grid-based)
-            _apply_gamble(
-                grid_id=cell.id,
-                is_correct=is_correct,
-                points=points,
-                answering_player_id=answering_player_id,
-            )
-
-
-        return scores
+        return scores, last_round_delta
     
     # ---------------------------------------------------------------------
     # Joker usage (process séparé)
@@ -852,3 +969,112 @@ class GameService:
             joker_ids=settings.DEFAULT_JOKER_IDS,
             bonus_ids=settings.DEFAULT_BONUS_IDS,
         )
+    
+    # ---------------------------------------------------------------------
+    # Fin de partie
+    # ---------------------------------------------------------------------
+    def get_game_results(self, game_url: str, *, user_id: int, is_admin: bool) -> Dict[str, Any]:
+        game = self._get_game_or_404(game_url)
+        self._ensure_owner_or_admin(game, user_id=user_id, is_admin=is_admin)
+
+        # ✅ Infos globales via list_user_games_with_players (couleurs/thèmes inclus)
+        games_for_owner = self.list_user_games_with_players(owner_id=game.owner_id)
+        game_with_players = next((g for g in games_for_owner if g["id"] == game.id), None)
+        if not game_with_players:
+            raise LookupError("GAME_NOT_FOUND")
+
+        players_out = [
+            {
+                "id": p["id"],
+                "name": p["name"],
+                "order": p["order"],
+                "theme": p["theme"],
+                "color": p["color"],
+            }
+            for p in game_with_players.get("players", [])
+        ]
+
+        nb_players = len(players_out)
+        if nb_players <= 0:
+            raise ConflictError("GAME_HAS_NO_PLAYERS")
+
+        # -----------------------------
+        # Data existante (réutilisation)
+        # -----------------------------
+        answered_cells = self.grids.list_answered_cells_for_scoring(game.id)
+        used_rows = self.jokers_used.list_used_for_game_for_scoring(game.id)
+        round_to_player_id, round_to_round_number = self._build_round_indexes(game.id)
+
+        # ✅ Moteur unique : scores finaux + scores par tour + deltas jokers
+        final_scores, turn_scores_out, joker_impacts_by_usage_id, _ = self._score_timeline(
+            game_id=game.id,
+            players_out=players_out,
+            answered_cells=answered_cells,
+            used_rows=used_rows,
+            round_to_player_id=round_to_player_id,
+            round_to_round_number=round_to_round_number,
+            with_history=True,
+        )
+
+        # -----------------------------
+        # jokers_impacts list (ordonnée)
+        # -----------------------------
+        used_rows_sorted = sorted(
+            used_rows,
+            key=lambda u: (round_to_round_number.get(u.round_id, 10**9), u.usage_id),
+        )
+
+        jokers_impacts_out = []
+        for u in used_rows_sorted:
+            round_number = round_to_round_number.get(u.round_id, 1)
+            turn_number = ((round_number - 1) // nb_players) + 1
+
+            jokers_impacts_out.append(
+                {
+                    "usage_id": u.usage_id,
+                    "turn_number": turn_number,
+                    "round_id": u.round_id,
+                    "round_number": round_number,
+                    "using_player_id": u.using_player_id,
+                    "joker_in_game_id": u.joker_in_game_id,
+                    "joker_id": u.joker_id,
+                    "joker_name": u.joker_name,
+                    "target_player_id": u.target_player_id,
+                    "target_grid_id": u.target_grid_id,
+                    "points_delta_by_player": joker_impacts_by_usage_id.get(
+                        u.usage_id,
+                        {p["id"]: 0 for p in players_out},
+                    ),
+                }
+            )
+
+        # -----------------------------
+        # bonus attachés (placeholder effets)
+        # -----------------------------
+        all_player_ids = [p["id"] for p in players_out]
+        bonus_rows = self.bonus_in_game.list_for_game(game.id)
+        bonus_out = [
+            {
+                "bonus_in_game_id": r.bonus_in_game_id,
+                "bonus": {"id": r.bonus_id, "name": r.name, "description": r.description},
+                "points_delta_by_player": {pid: 0 for pid in all_player_ids},  # TODO
+            }
+            for r in bonus_rows
+        ]
+
+        return {
+            "game": {
+                "id": game.id,
+                "url": game.url,
+                "seed": game.seed,
+                "rows_number": game.rows_number,
+                "columns_number": game.columns_number,
+                "finished": game.finished,
+                "owner_id": game.owner_id,
+            },
+            "players": players_out,
+            "scores": final_scores,  # ✅ score final (cohérent avec _compute_scores)
+            "turn_scores": turn_scores_out,
+            "jokers_impacts": jokers_impacts_out,
+            "bonus": bonus_out,
+        }
