@@ -388,7 +388,7 @@ class GameService:
         last_pending_round = self.rounds.get_last_round_not_in_grid(game.id)
 
         current_turn = None
-        is_last_full_turn = False
+        current_full_turn_number = 0
 
         if (not game.finished) and last_pending_round:
             if last_pending_round.round_number <= max_rounds:
@@ -404,8 +404,7 @@ class GameService:
                 }
 
                 # ✅ bool : est-on sur le dernier tour complet ?
-                current_turn_number = ((last_pending_round.round_number - 1) // nb_players) + 1
-                is_last_full_turn = (max_full_turns > 0 and current_turn_number == max_full_turns)
+                current_full_turn_number = ((last_pending_round.round_number - 1) // nb_players) + 1
 
         # 3) jokers dispo pour le joueur du tour (disponible = pas utilisé avant ce round)
         all_jig = self.jokers_in_game.list_for_game(game.id)  # jokers au niveau partie
@@ -468,7 +467,8 @@ class GameService:
             "bonus": bonus,
             "scores": scores,
             "last_round_delta": last_round_delta,
-            "is_last_full_turn": is_last_full_turn,
+            "max_full_turns": max_full_turns,
+            "current_full_turn_number": current_full_turn_number,
         }
 
     # ---------------------------------------------------------------------

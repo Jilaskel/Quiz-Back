@@ -154,7 +154,8 @@ class GameStateOut(BaseModel):
     bonus: List[BonusInGameOut] = []
     scores: Dict[int, int]  # player_id -> points
     last_round_delta: Optional[LastRoundDeltaOut] = None
-    is_last_full_turn: bool = False
+    max_full_turns: int
+    current_full_turn_number: int
 
 # -----------------------------
 # Rounds
