@@ -147,13 +147,14 @@ class LastRoundDeltaOut(BaseModel):
 
 class GameStateOut(BaseModel):
     game: GameMetaOut
-    players: List[Dict]  # volontairement “simple” (ou tu peux typer strict)
+    players: List[Dict]
     grid: List[GridCellOut]
     current_turn: Optional[CurrentTurnOut] = None
     available_jokers: Dict[int, List[JokerAvailabilityOut]] = {}
     bonus: List[BonusInGameOut] = []
     scores: Dict[int, int]  # player_id -> points
     last_round_delta: Optional[LastRoundDeltaOut] = None
+    is_last_full_turn: bool = False
 
 # -----------------------------
 # Rounds

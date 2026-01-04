@@ -340,6 +340,9 @@ class GameService:
         self._ensure_owner_or_admin(game, user_id=user_id, is_admin=is_admin)
 
         players = self.players.list_by_game(game.id)
+        nb_players = len(players)
+        if nb_players <= 0:
+            raise ConflictError("GAME_HAS_NO_PLAYERS")
 
         # ✅ Mapping round_id -> player_id (pour savoir qui a répondu)
         rounds_flat = self.rounds.list_by_game(game.id)
@@ -365,28 +368,44 @@ class GameService:
             for r in grid_rows
         ]
 
-        # ✅ Vérifier si toutes les cases sont répondues
-        all_answered = all(r.round_id is not None for r in grid_rows)
+        # ------------------------------------------------------------------
+        # ✅ NOUVELLE RÈGLE FIN DE PARTIE
+        # fin quand on ne peut plus faire un tour complet
+        # ------------------------------------------------------------------
+        grid_size = len(grid_rows)  # = rows*cols
+        max_full_turns = grid_size // nb_players          # quotient
+        max_rounds = max_full_turns * nb_players          # nb rounds jouables (rotation complète only)
+
+        answered_count = sum(1 for r in grid_rows if r.round_id is not None)
+
+        finished_by_rule = answered_count >= max_rounds
 
         # ✅ Marquer la partie comme terminée si nécessaire
-        if all_answered and not game.finished:
+        if finished_by_rule and not game.finished:
             game = self.games.update(game, commit=True, finished=True)
 
         # 2) dernier round à jouer (= dernier round ajouté à rounds pas encore dans la grille)
         last_pending_round = self.rounds.get_last_round_not_in_grid(game.id)
 
         current_turn = None
-        if last_pending_round:
-            current_turn = {
-                "round_id": last_pending_round.round_id,
-                "round_number": last_pending_round.round_number,
-                "player": {
-                    "id": last_pending_round.player_id,
-                    "name": last_pending_round.player_name,
-                    "order": last_pending_round.player_order,
-                    "theme_id": last_pending_round.player_theme_id,
-                },
-            }
+        is_last_full_turn = False
+
+        if (not game.finished) and last_pending_round:
+            if last_pending_round.round_number <= max_rounds:
+                current_turn = {
+                    "round_id": last_pending_round.round_id,
+                    "round_number": last_pending_round.round_number,
+                    "player": {
+                        "id": last_pending_round.player_id,
+                        "name": last_pending_round.player_name,
+                        "order": last_pending_round.player_order,
+                        "theme_id": last_pending_round.player_theme_id,
+                    },
+                }
+
+                # ✅ bool : est-on sur le dernier tour complet ?
+                current_turn_number = ((last_pending_round.round_number - 1) // nb_players) + 1
+                is_last_full_turn = (max_full_turns > 0 and current_turn_number == max_full_turns)
 
         # 3) jokers dispo pour le joueur du tour (disponible = pas utilisé avant ce round)
         all_jig = self.jokers_in_game.list_for_game(game.id)  # jokers au niveau partie
@@ -449,6 +468,7 @@ class GameService:
             "bonus": bonus,
             "scores": scores,
             "last_round_delta": last_round_delta,
+            "is_last_full_turn": is_last_full_turn,
         }
 
     # ---------------------------------------------------------------------
