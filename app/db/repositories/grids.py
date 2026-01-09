@@ -66,3 +66,7 @@ class GridRepository(BaseRepository[Grid]):
     def count_unanswered_for_game(self, game_id: int) -> int:
         stmt = select(func.count(Grid.id)).where(Grid.game_id == game_id, Grid.round_id.is_(None))
         return int(self.session.exec(stmt).one())
+
+    def list_by_game(self, game_id: int) -> Sequence[Grid]:
+        stmt = select(Grid).where(Grid.game_id == game_id)
+        return self.session.exec(stmt).all()

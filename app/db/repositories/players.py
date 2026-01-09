@@ -40,3 +40,14 @@ class PlayerRepository(BaseRepository[Player]):
             .limit(1)
         )
         return self.session.exec(stmt_first).first()
+
+    def update_pawn_position(
+        self, player: Player, row: Optional[int], col: Optional[int], *, commit: bool = True
+    ) -> Player:
+        player.pawn_row = row
+        player.pawn_col = col
+        self.session.add(player)
+        if commit:
+            self.session.commit()
+            self.session.refresh(player)
+        return player
