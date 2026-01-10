@@ -145,12 +145,17 @@ class GameService:
         cols: int,
         answered_cells: set,
         other_pawn_positions: set,
+        allowed_steps: int = 1,
     ) -> set:
         """
-        Compute valid cells for a pawn to move to.
+        Compute valid cells for a pawn to move to (queen-like movement with fallbacks).
         - If pawn is off-grid (None, None): can move to any unanswered edge cell
-        - If pawn is on-grid: can move to adjacent unanswered cells (8 directions),
-          jumping over answered cells in each direction until hitting an unanswered one
+        - If pawn is on-grid: move in straight lines (8 directions like a chess queen)
+          - Moving to an answered cell or cell with pawn costs 0 steps (free traversal)
+          - Moving to an unanswered cell costs 1 step
+          - Can only stop on unanswered cells without pawns
+        - Fallback 1: if no moves, allow any unanswered edge cell
+        - Fallback 2: if no edge cells, allow any unanswered cell on the board
         """
         valid = set()
 
@@ -162,16 +167,40 @@ class GameService:
                             valid.add((r, c))
         else:
             directions = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+
             for dr, dc in directions:
+                steps_used = 0
                 nr, nc = player_row + dr, player_col + dc
+
                 while 0 <= nr < rows and 0 <= nc < cols:
-                    if (nr, nc) in other_pawn_positions:
+                    has_other_pawn = (nr, nc) in other_pawn_positions
+                    is_answered = (nr, nc) in answered_cells
+
+                    is_free = is_answered or has_other_pawn
+                    step_cost = 0 if is_free else 1
+                    steps_used += step_cost
+
+                    if steps_used > allowed_steps:
                         break
-                    if (nr, nc) not in answered_cells:
+
+                    if not is_free:
                         valid.add((nr, nc))
-                        break
+
                     nr += dr
                     nc += dc
+
+            if not valid:
+                for r in range(rows):
+                    for c in range(cols):
+                        if self._is_edge_cell(r, c, rows, cols):
+                            if (r, c) not in answered_cells and (r, c) not in other_pawn_positions:
+                                valid.add((r, c))
+
+            if not valid:
+                for r in range(rows):
+                    for c in range(cols):
+                        if (r, c) not in answered_cells and (r, c) not in other_pawn_positions:
+                            valid.add((r, c))
 
         return valid
 
@@ -208,6 +237,7 @@ class GameService:
             game.columns_number,
             answered_cells,
             other_pawn_positions,
+            player.allowed_steps,
         )
 
         if (target_row, target_col) not in valid_moves:
@@ -546,6 +576,7 @@ class GameService:
                     "color_id": p.color_id,
                     "pawn_row": p.pawn_row,
                     "pawn_col": p.pawn_col,
+                    "allowed_steps": p.allowed_steps,
                 }
                 for p in players
             ],
@@ -1019,6 +1050,14 @@ class GameService:
 
             # Update pawn position
             self.players.update_pawn_position(player, grid.row, grid.column, commit=False)
+
+            # Update allowed_steps for next turn based on answer result
+            if payload.correct_answer and not payload.skip_answer:
+                question_points = self.grids.get_question_points(payload.grid_id)
+                new_allowed_steps = question_points if question_points and question_points > 0 else 1
+            else:
+                new_allowed_steps = 1
+            self.players.update_allowed_steps(player, new_allowed_steps, commit=False)
 
         updated = self.grids.update(
             grid,

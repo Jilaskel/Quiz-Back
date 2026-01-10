@@ -18,3 +18,4 @@ class Player(BaseModelDB, table=True):
 
     pawn_row: Optional[int] = Field(default=None, nullable=True)
     pawn_col: Optional[int] = Field(default=None, nullable=True)
+    allowed_steps: int = Field(default=1, nullable=False)

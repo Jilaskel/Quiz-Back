@@ -51,3 +51,13 @@ class PlayerRepository(BaseRepository[Player]):
             self.session.commit()
             self.session.refresh(player)
         return player
+
+    def update_allowed_steps(
+        self, player: Player, allowed_steps: int, *, commit: bool = True
+    ) -> Player:
+        player.allowed_steps = allowed_steps
+        self.session.add(player)
+        if commit:
+            self.session.commit()
+            self.session.refresh(player)
+        return player
