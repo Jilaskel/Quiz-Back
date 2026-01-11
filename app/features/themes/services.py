@@ -6,6 +6,7 @@ from app.db.repositories.images import ImageRepository
 from app.db.repositories.categories import CategoryRepository
 from app.db.repositories.questions import QuestionRepository
 from app.db.repositories.grids import GridRepository
+from app.db.repositories.players import PlayerRepository
 
 from app.db.models.themes import Theme
 from app.db.models.categories import Category
@@ -14,7 +15,8 @@ from app.db.models.questions import Question
 from app.features.themes.schemas import (
     ThemeCreateIn, ThemeUpdateWithQuestionsIn, 
     CategoryPublic, CategoryPublicList, 
-    ThemeJoinWithSignedUrlOut, ThemeDetailJoinWithSignedUrlOut
+    ThemeJoinWithSignedUrlOut, ThemeDetailJoinWithSignedUrlOut,
+    ThemePreviewOut, QuestionStatOut
 )
 from app.features.questions.schemas import QuestionJoinWithSignedUrlOut
 
@@ -41,7 +43,8 @@ class ThemeService:
         audio_svc: AudioService,
         video_svc: VideoService,
         question_repo: QuestionRepository,
-        grid_repo: GridRepository = None,
+        grid_repo: GridRepository,
+        player_repo: PlayerRepository,
     ):
         self.repo = repo
         self.image_repo = image_repo
@@ -51,6 +54,7 @@ class ThemeService:
         
         self.question_repo = question_repo
         self.grid_repo = grid_repo
+        self.player_repo = player_repo
 
     # -------- Helpers permissions --------
 
@@ -464,6 +468,76 @@ class ThemeService:
             **base.model_dump(),  # type: ignore
             questions=q_out,
         )
+
+    def get_preview(self, theme_id: int, *, with_signed_url: bool) -> "ThemePreviewOut":
+        """Retourne les informations de preview publiques d'un thème :
+        - métadonnées (owner, category, dates)
+        - URL signée de la couverture si autorisé (public + valid_admin)
+        - nombre de parties où le thème a été joué
+        - statistiques par question (counts) **sans** renvoyer le contenu des questions
+        """
+        # 1) Theme ORM pour permissions / existence
+        theme = self.repo.get(theme_id)
+        if not theme:
+            raise LookupError("Theme not found.")
+
+        # Seules les thèmes publics sont exposés par cette route publique
+        if not getattr(theme, "is_public", False):
+            raise PermissionError("Not allowed.")
+
+        # 2) projection join (category/color/owner)
+        join = self.repo.get_join_by_id(theme_id)
+        if not join:
+            raise LookupError("Theme not found.")
+
+        # 3) signed url (public route -> only allowed if theme.is_public and valid_admin)
+        image_signed = self._signed_url_for_theme(theme, None) if with_signed_url else None
+        image_signed_url = image_signed["url"] if image_signed else None
+        image_signed_expires = image_signed["expires_in"] if image_signed else None
+
+        # 4) plays count (distinct games where a question of the theme was played)
+        plays = 0
+        if self.player_repo:
+            try:
+                plays = int(self.player_repo.count_plays_for_theme(theme_id))
+            except Exception:
+                plays = 0
+
+        # 5) question stats (id + counts) — sans contenu
+        q_rows = self.question_repo.list_by_theme(theme_id, offset=0, limit=500, newest_first=False)
+        q_stats = []
+        for q in q_rows:
+            pos = neg = cancelled = 0
+            if self.grid_repo:
+                try:
+                    stats = self.grid_repo.count_stats_for_question(q.id)
+                    pos = int(stats.get("positive", 0))
+                    neg = int(stats.get("negative", 0))
+                    cancelled = int(stats.get("cancelled", 0))
+                except Exception:
+                    pos = neg = cancelled = 0
+
+            q_stats.append(
+                {
+                    "question_id": q.id,
+                    "points": int(getattr(q, "points", 0)),
+                    "positive_answers_count": pos,
+                    "negative_answers_count": neg,
+                    "cancelled_answers_count": cancelled,
+                }
+            )
+
+        # 6) construire sortie
+
+        base = ThemePreviewOut(
+            **join.model_dump(),  # type: ignore
+            image_signed_url=image_signed_url,
+            image_signed_expires_in=image_signed_expires,
+            plays_count=plays,
+            question_stats=[QuestionStatOut(**qs) for qs in q_stats],
+        )
+
+        return base
 
 class CategoryService:
     """

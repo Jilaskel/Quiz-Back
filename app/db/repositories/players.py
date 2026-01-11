@@ -1,10 +1,11 @@
 from typing import Optional, Sequence
 
-from sqlmodel import select
+from sqlmodel import select, func
 
 from app.db.repositories.base import BaseRepository
 
 from app.db.models.players import Player
+from app.db.models.games import Game
 
 class PlayerRepository(BaseRepository[Player]):
     model = Player
@@ -40,3 +41,21 @@ class PlayerRepository(BaseRepository[Player]):
             .limit(1)
         )
         return self.session.exec(stmt_first).first()
+
+    def count_plays_for_theme(self, theme_id: int) -> int:
+        """Compte le nombre de parties distinctes où un joueur a utilisé ce thème
+
+        Utilise la table `players` joinée à `games` pour ne compter que les parties
+        terminées (`games.finished = True`).
+        """
+
+        stmt = (
+            select(func.count(func.distinct(Player.game_id)))
+            .select_from(Player)
+            .join(Game, Game.id == Player.game_id)
+            .where(
+                Player.theme_id == theme_id,
+                Game.finished.is_(True),
+            )
+        )
+        return int(self.session.exec(stmt).one())

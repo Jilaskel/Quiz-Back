@@ -81,5 +81,20 @@ class CategoryPublicList(BaseModel):
 class ThemeDetailJoinWithSignedUrlOut(ThemeJoinWithSignedUrlOut):
     questions: List[QuestionJoinWithSignedUrlOut] = []
 
+
+class QuestionStatOut(BaseModel):
+    question_id: int
+    points: int = 0
+    positive_answers_count: int = 0
+    negative_answers_count: int = 0
+    cancelled_answers_count: int = 0
+
+
+class ThemePreviewOut(ThemeJoinWithSignedUrlOut):
+    image_signed_url: Optional[str] = None
+    image_signed_expires_in: Optional[int] = None
+    plays_count: int = 0
+    question_stats: List[QuestionStatOut] = []
+
 class ThemeUpdateWithQuestionsIn(ThemeUpdateIn):
     questions: List[QuestionUpdateIn]

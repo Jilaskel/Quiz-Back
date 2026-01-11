@@ -1,13 +1,13 @@
 from typing import Any, Sequence, Optional
 
-from sqlmodel import select
-from sqlalchemy import func
+from sqlmodel import select, func
 
 from app.db.repositories.base import BaseRepository
 
 from app.db.models.grids import Grid
 from app.db.models.questions import Question
 from app.db.models.themes import Theme
+from app.db.models.games import Game
 
 class GridRepository(BaseRepository[Grid]):
     model = Grid
@@ -74,28 +74,46 @@ class GridRepository(BaseRepository[Grid]):
         - cancelled: `skip_answer is True` and was played
         - negative: played and not correct and not skipped
         """
-        # positives
-        stmt_pos = select(func.count(Grid.id)).where(
-            Grid.question_id == question_id,
-            Grid.round_id.is_not(None),
-            Grid.correct_answer.is_(True),
+        # positives (only from finished games)
+        stmt_pos = (
+            select(func.count(Grid.id))
+            .select_from(Grid)
+            .join(Game, Game.id == Grid.game_id)
+            .where(
+                Grid.question_id == question_id,
+                Grid.round_id.is_not(None),
+                Grid.correct_answer.is_(True),
+                Game.finished.is_(True),
+            )
         )
         pos = int(self.session.exec(stmt_pos).one())
 
-        # cancelled
-        stmt_cancel = select(func.count(Grid.id)).where(
-            Grid.question_id == question_id,
-            Grid.round_id.is_not(None),
-            Grid.skip_answer.is_(True),
+        # cancelled (only from finished games)
+        stmt_cancel = (
+            select(func.count(Grid.id))
+            .select_from(Grid)
+            .join(Game, Game.id == Grid.game_id)
+            .where(
+                Grid.question_id == question_id,
+                Grid.round_id.is_not(None),
+                Grid.skip_answer.is_(True),
+                Game.finished.is_(True),
+            )
         )
         cancelled = int(self.session.exec(stmt_cancel).one())
 
-        # negative: played, not skipped, not correct
-        stmt_neg = select(func.count(Grid.id)).where(
-            Grid.question_id == question_id,
-            Grid.round_id.is_not(None),
-            Grid.skip_answer.is_(False),
-            Grid.correct_answer.is_(False),
+        # negative: played, not skipped, not correct (only from finished games)
+        stmt_neg = (
+            select(func.count(Grid.id))
+            .select_from(Grid)
+            .join(Game, Game.id == Grid.game_id)
+            .where(
+                Grid.question_id == question_id,
+                Grid.round_id.is_not(None),
+                Grid.skip_answer.is_(False),
+                Grid.correct_answer.is_(False),
+                Game.finished.is_(True),
+            )
         )
         neg = int(self.session.exec(stmt_neg).one())
 

@@ -205,6 +205,7 @@ def get_theme_service(
     video_svc: VideoService = Depends(get_video_service),
     question_repo: QuestionRepository = Depends(get_question_repository),
     grid_repo: GridRepository = Depends(get_grid_repository),
+    player_repo: PlayerRepository = Depends(get_player_repository),
 ) -> ThemeService:
     # ✅ toutes les dépendances injectées via la signature (FastAPI les résout)
     return ThemeService(
@@ -215,6 +216,7 @@ def get_theme_service(
         video_svc=video_svc,
         question_repo=question_repo,
         grid_repo=grid_repo,
+        player_repo=player_repo,
     )
 
 # -----------------------------

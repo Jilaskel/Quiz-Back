@@ -192,6 +192,8 @@ Service métier → utils/s3.py (MinIO)
 - Les repositories importent :
 - `db/session.py` + `db/models/*`
 
+- **Bonne pratique :** toujours placer les imports en début de fichier. Éviter d'effectuer des imports à l'intérieur de fonctions ou méthodes sauf exception très justifiée (prévenir les import cycles). Cela facilite la lecture, la traçabilité des dépendances et les outils de linting/type checking.
+
 ## Version courte pour prompt LLM
 ```
 Tu interviens sur un backend Python FastAPI.

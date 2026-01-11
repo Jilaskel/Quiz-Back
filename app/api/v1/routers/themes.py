@@ -17,6 +17,7 @@ from app.features.themes.schemas import (
     ThemeDetailJoinWithSignedUrlOut,
     ThemeJoinWithSignedUrlOut, 
     CategoryPublicList,  
+    ThemePreviewOut
 )
 from app.features.themes.services import ThemeService, PermissionError, CategoryService
 
@@ -196,6 +197,24 @@ def get_one(
     user_ctx = _get_user_ctx_or_none(access_token, auth_svc) if access_token else None
     try:
         return svc.get_one_detail(theme_id, user_ctx, with_signed_url=with_signed_url)
+    except PermissionError:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    except LookupError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
+
+
+@router.get(
+    "/{theme_id}/preview",
+    summary="Récupérer la preview publique d'un thème (métadonnées + stats)",
+    response_model= ThemePreviewOut,
+)
+def get_preview(
+    theme_id: int = Path(..., ge=1),
+    with_signed_url: bool = Query(True, description="Inclure l'URL signée de la couverture si possible"),
+    svc: ThemeService = Depends(get_theme_service),
+):
+    try:
+        return svc.get_preview(theme_id, with_signed_url=with_signed_url)
     except PermissionError:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     except LookupError:
