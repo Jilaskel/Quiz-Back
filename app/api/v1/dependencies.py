@@ -184,6 +184,7 @@ def get_question_service(
     image_svc: ImageService = Depends(get_image_service),
     audio_svc: AudioService = Depends(get_audio_service),
     video_svc: VideoService = Depends(get_video_service),
+    grid_repo: GridRepository = Depends(get_grid_repository),
 ) -> QuestionService:
     return QuestionService(
         repo=question_repo,
@@ -191,6 +192,7 @@ def get_question_service(
         image_svc=image_svc,
         audio_svc=audio_svc,
         video_svc=video_svc,
+        grid_repo=grid_repo,
     )
 # -----------------------------
 # Theme service
@@ -202,6 +204,7 @@ def get_theme_service(
     audio_svc: AudioService = Depends(get_audio_service),
     video_svc: VideoService = Depends(get_video_service),
     question_repo: QuestionRepository = Depends(get_question_repository),
+    grid_repo: GridRepository = Depends(get_grid_repository),
 ) -> ThemeService:
     # ✅ toutes les dépendances injectées via la signature (FastAPI les résout)
     return ThemeService(
@@ -211,6 +214,7 @@ def get_theme_service(
         audio_svc=audio_svc,
         video_svc=video_svc,
         question_repo=question_repo,
+        grid_repo=grid_repo,
     )
 
 # -----------------------------

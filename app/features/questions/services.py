@@ -2,6 +2,7 @@ from typing import Optional, Sequence, Tuple, Any, Dict
 
 from app.db.repositories.questions import QuestionRepository
 from app.db.repositories.themes import ThemeRepository
+from app.db.repositories.grids import GridRepository
 
 from app.db.models.questions import Question
 
@@ -26,12 +27,14 @@ class QuestionService:
         image_svc: ImageService,
         audio_svc: AudioService,
         video_svc: VideoService,
+        grid_repo: GridRepository,
     ):
         self.repo = repo
         self.theme_repo = theme_repo
         self.image_svc = image_svc
         self.audio_svc = audio_svc
         self.video_svc = video_svc
+        self.grid_repo = grid_repo
 
     def create(self, payload: QuestionCreateIn) -> Question:
         return self.repo.create(**payload.model_dump())
@@ -148,6 +151,18 @@ class QuestionService:
             d = self.video_svc.signed_get(str(q.answer_video_id))
             av_url, av_exp = d.get("url"), d.get("expires_in")
 
+        # 5) statistiques d'usage (si disponible)
+        pos = neg = cancelled = 0
+        if self.grid_repo:
+            try:
+                stats = self.grid_repo.count_stats_for_question(q.id)
+                pos = int(stats.get("positive", 0))
+                neg = int(stats.get("negative", 0))
+                cancelled = int(stats.get("cancelled", 0))
+            except Exception:
+                # ne doit pas empêcher la réponse principale
+                pos = neg = cancelled = 0
+
         return QuestionJoinWithSignedUrlOut(
             id=q.id,
             theme_id=q.theme_id,
@@ -179,4 +194,7 @@ class QuestionService:
 
             created_at=getattr(q, "created_at", None),
             updated_at=getattr(q, "updated_at", None),
+            positive_answers_count=pos,
+            negative_answers_count=neg,
+            cancelled_answers_count=cancelled,
         )

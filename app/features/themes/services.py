@@ -5,6 +5,7 @@ from app.db.repositories.themes import ThemeRepository
 from app.db.repositories.images import ImageRepository
 from app.db.repositories.categories import CategoryRepository
 from app.db.repositories.questions import QuestionRepository
+from app.db.repositories.grids import GridRepository
 
 from app.db.models.themes import Theme
 from app.db.models.categories import Category
@@ -40,6 +41,7 @@ class ThemeService:
         audio_svc: AudioService,
         video_svc: VideoService,
         question_repo: QuestionRepository,
+        grid_repo: GridRepository = None,
     ):
         self.repo = repo
         self.image_repo = image_repo
@@ -48,6 +50,7 @@ class ThemeService:
         self.video_svc = video_svc
         
         self.question_repo = question_repo
+        self.grid_repo = grid_repo
 
     # -------- Helpers permissions --------
 
@@ -401,6 +404,18 @@ class ThemeService:
                 d = self.video_svc.signed_get(str(q.answer_video_id))
                 av_url, av_exp = d.get("url"), d.get("expires_in")
 
+            # stats
+            pos = neg = cancelled = 0
+            if self.grid_repo:
+                try:
+                    stats = self.grid_repo.count_stats_for_question(q.id)
+                    pos = int(stats.get("positive", 0))
+                    neg = int(stats.get("negative", 0))
+                    cancelled = int(stats.get("cancelled", 0))
+                except Exception:
+                    # ne doit pas empêcher la réponse principale
+                    pos = neg = cancelled = 0
+
             q_out.append(
                 QuestionJoinWithSignedUrlOut(
                     id=q.id,
@@ -432,6 +447,9 @@ class ThemeService:
 
                     created_at=getattr(q, "created_at", None),
                     updated_at=getattr(q, "updated_at", None),
+                    positive_answers_count=pos,
+                    negative_answers_count=neg,
+                    cancelled_answers_count=cancelled,
                 )
             )
 

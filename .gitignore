@@ -5,3 +5,4 @@ venv
 minio-data/
 app/db/docs/
 data/
+*.zip

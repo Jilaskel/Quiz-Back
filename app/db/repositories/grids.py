@@ -66,3 +66,41 @@ class GridRepository(BaseRepository[Grid]):
     def count_unanswered_for_game(self, game_id: int) -> int:
         stmt = select(func.count(Grid.id)).where(Grid.game_id == game_id, Grid.round_id.is_(None))
         return int(self.session.exec(stmt).one())
+
+    def count_stats_for_question(self, question_id: int) -> dict:
+        """Retourne le nombre de réponses positives, négatives et annulées pour une question.
+
+        - positive: `correct_answer is True` and was played (round_id not null)
+        - cancelled: `skip_answer is True` and was played
+        - negative: played and not correct and not skipped
+        """
+        # positives
+        stmt_pos = select(func.count(Grid.id)).where(
+            Grid.question_id == question_id,
+            Grid.round_id.is_not(None),
+            Grid.correct_answer.is_(True),
+        )
+        pos = int(self.session.exec(stmt_pos).one())
+
+        # cancelled
+        stmt_cancel = select(func.count(Grid.id)).where(
+            Grid.question_id == question_id,
+            Grid.round_id.is_not(None),
+            Grid.skip_answer.is_(True),
+        )
+        cancelled = int(self.session.exec(stmt_cancel).one())
+
+        # negative: played, not skipped, not correct
+        stmt_neg = select(func.count(Grid.id)).where(
+            Grid.question_id == question_id,
+            Grid.round_id.is_not(None),
+            Grid.skip_answer.is_(False),
+            Grid.correct_answer.is_(False),
+        )
+        neg = int(self.session.exec(stmt_neg).one())
+
+        return {
+            "positive": pos,
+            "negative": neg,
+            "cancelled": cancelled,
+        }

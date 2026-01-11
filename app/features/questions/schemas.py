@@ -70,3 +70,8 @@ class QuestionJoinWithSignedUrlOut(QuestionOut):
     question_video_signed_expires_in: Optional[int] = None
     answer_video_signed_url: Optional[str] = None
     answer_video_signed_expires_in: Optional[int] = None
+
+    # Statistiques d'usage pour cette question
+    positive_answers_count: int = 0
+    negative_answers_count: int = 0
+    cancelled_answers_count: int = 0
