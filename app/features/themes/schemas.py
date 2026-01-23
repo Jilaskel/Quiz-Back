@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field as PydField
 from typing import List
 
 from app.features.questions.schemas import QuestionJoinWithSignedUrlOut, QuestionUpdateIn
+from app.features.comments.schemas import ThemeCommentListOut
 
 class ThemeCreateIn(BaseModel):
     name: str = PydField(..., description="Nom du thème")
@@ -95,6 +96,9 @@ class ThemePreviewOut(ThemeJoinWithSignedUrlOut):
     image_signed_expires_in: Optional[int] = None
     plays_count: int = 0
     question_stats: List[QuestionStatOut] = []
+    comments: ThemeCommentListOut = ThemeCommentListOut(items=[], total=0)
+    score_avg: float = 0.0
+    score_count: int = 0
 
 class ThemeUpdateWithQuestionsIn(ThemeUpdateIn):
     questions: List[QuestionUpdateIn]

@@ -28,6 +28,7 @@ from app.db.models.categories import Category
 from app.db.models.refresh_tokens import RefreshToken
 from app.db.models.themes import Theme
 from app.db.models.questions import Question
+from app.db.models.comments import ThemeComment
 
 from app.db.models.games import Game
 from app.db.models.players import Player

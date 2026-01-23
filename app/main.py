@@ -28,7 +28,7 @@ from app.core.config import settings
 from app.core.openapi import custom_openapi
 from app.db.session import init_db
 
-from app.api.v1.routers import users, authentication, images, themes, audios, videos, games
+from app.api.v1.routers import users, authentication, images, themes, audios, videos, games, comments
 
 import uvicorn
 
@@ -45,6 +45,7 @@ app = FastAPI(
         {"name": "videos", "description": "Opérations liées au stockage des videos"},
         {"name": "themes", "description": "Opérations liées aux thèmes"},
         {"name": "games", "description": "Opérations liées aux parties"},
+        {"name": "comments", "description": "Notes et commentaires sur les thèmes"},
     ],
 )
 
@@ -63,6 +64,7 @@ app.include_router(themes.router, prefix="/api/v1")
 app.include_router(audios.router, prefix="/api/v1")
 app.include_router(videos.router, prefix="/api/v1")
 app.include_router(games.router, prefix="/api/v1")
+app.include_router(comments.router, prefix="/api/v1")
 
 # Génération du schéma OpenAPI custom (facultatif, mais propre)
 app.openapi = lambda: custom_openapi(app)

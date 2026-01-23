@@ -211,10 +211,17 @@ def get_one(
 def get_preview(
     theme_id: int = Path(..., ge=1),
     with_signed_url: bool = Query(True, description="Inclure l'URL signée de la couverture si possible"),
+    comments_offset: int = Query(0, ge=0),
+    comments_limit: int = Query(100, ge=1, le=200),
     svc: ThemeService = Depends(get_theme_service),
 ):
     try:
-        return svc.get_preview(theme_id, with_signed_url=with_signed_url)
+        return svc.get_preview(
+            theme_id,
+            with_signed_url=with_signed_url,
+            comments_offset=comments_offset,
+            comments_limit=comments_limit,
+        )
     except PermissionError:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     except LookupError:

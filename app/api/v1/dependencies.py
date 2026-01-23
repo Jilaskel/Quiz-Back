@@ -45,6 +45,8 @@ from app.db.repositories.categories import CategoryRepository
 
 from app.db.repositories.questions import QuestionRepository
 from app.features.questions.services import QuestionService
+from app.db.repositories.comments import ThemeCommentRepository
+from app.features.comments.services import CommentService
 
 from app.db.repositories.games import GameRepository
 from app.db.repositories.players import PlayerRepository
@@ -94,6 +96,12 @@ def get_auth_service(session: Session = Depends(get_session)) -> AuthService:
 # -----------------------------
 def get_image_repository(session: Session = Depends(get_session)) -> ImageRepository:
     return ImageRepository(session)
+
+def get_user_repository(session: Session = Depends(get_session)) -> UserRepository:
+    return UserRepository(session)
+
+def get_comment_repository(session: Session = Depends(get_session)) -> ThemeCommentRepository:
+    return ThemeCommentRepository(session)
 
 def get_theme_repository(session: Session = Depends(get_session)) -> ThemeRepository:
     return ThemeRepository(session)
@@ -194,6 +202,25 @@ def get_question_service(
         video_svc=video_svc,
         grid_repo=grid_repo,
     )
+
+
+# -----------------------------
+# Comment service
+# -----------------------------
+def get_comment_service(
+    comment_repo: ThemeCommentRepository = Depends(get_comment_repository),
+    game_repo: GameRepository = Depends(get_game_repository),
+    player_repo: PlayerRepository = Depends(get_player_repository),
+    theme_repo: ThemeRepository = Depends(get_theme_repository),
+    user_repo: UserRepository = Depends(get_user_repository),
+) -> CommentService:
+    return CommentService(
+        comment_repo=comment_repo,
+        game_repo=game_repo,
+        player_repo=player_repo,
+        theme_repo=theme_repo,
+        user_repo=user_repo,
+    )
 # -----------------------------
 # Theme service
 # -----------------------------
@@ -206,6 +233,7 @@ def get_theme_service(
     question_repo: QuestionRepository = Depends(get_question_repository),
     grid_repo: GridRepository = Depends(get_grid_repository),
     player_repo: PlayerRepository = Depends(get_player_repository),
+    comment_svc: CommentService = Depends(get_comment_service),
 ) -> ThemeService:
     # ✅ toutes les dépendances injectées via la signature (FastAPI les résout)
     return ThemeService(
@@ -217,6 +245,7 @@ def get_theme_service(
         question_repo=question_repo,
         grid_repo=grid_repo,
         player_repo=player_repo,
+        comment_service=comment_svc,
     )
 
 # -----------------------------

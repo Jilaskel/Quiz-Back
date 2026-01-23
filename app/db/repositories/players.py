@@ -59,3 +59,11 @@ class PlayerRepository(BaseRepository[Player]):
             )
         )
         return int(self.session.exec(stmt).one())
+
+    def exists_for_game_and_theme(self, game_id: int, theme_id: int) -> bool:
+        stmt = (
+            select(func.count(Player.id))
+            .where(Player.game_id == game_id, Player.theme_id == theme_id)
+        )
+        count = self.session.exec(stmt).one()
+        return bool(count and count > 0)

@@ -19,8 +19,10 @@ from app.features.themes.schemas import (
     ThemePreviewOut, QuestionStatOut
 )
 from app.features.questions.schemas import QuestionJoinWithSignedUrlOut
+from app.features.comments.schemas import ThemeCommentListOut
 
 from app.features.media.services import ImageService, AudioService, VideoService
+from app.features.comments.services import CommentService
 
 class PermissionError(Exception):
     pass
@@ -45,6 +47,7 @@ class ThemeService:
         question_repo: QuestionRepository,
         grid_repo: GridRepository,
         player_repo: PlayerRepository,
+        comment_service: Optional[CommentService] = None,
     ):
         self.repo = repo
         self.image_repo = image_repo
@@ -55,6 +58,7 @@ class ThemeService:
         self.question_repo = question_repo
         self.grid_repo = grid_repo
         self.player_repo = player_repo
+        self.comment_service = comment_service
 
     # -------- Helpers permissions --------
 
@@ -469,7 +473,14 @@ class ThemeService:
             questions=q_out,
         )
 
-    def get_preview(self, theme_id: int, *, with_signed_url: bool) -> "ThemePreviewOut":
+    def get_preview(
+        self,
+        theme_id: int,
+        *,
+        with_signed_url: bool,
+        comments_offset: int = 0,
+        comments_limit: int = 100,
+    ) -> "ThemePreviewOut":
         """Retourne les informations de preview publiques d'un thème :
         - métadonnées (owner, category, dates)
         - URL signée de la couverture si autorisé (public + valid_admin)
@@ -527,7 +538,23 @@ class ThemeService:
                 }
             )
 
-        # 6) construire sortie
+        # 6) commentaires + stats agrégées
+        comments_out = None
+        score_avg = 0.0
+        score_count = 0
+        if self.comment_service:
+            try:
+                comments_out, score_avg, score_count = self.comment_service.list_for_theme_with_stats(
+                    theme_id,
+                    offset=comments_offset,
+                    limit=comments_limit,
+                )
+            except Exception:
+                comments_out = None
+                score_avg = 0.0
+                score_count = 0
+
+        # 7) construire sortie
 
         base = ThemePreviewOut(
             **join.model_dump(),  # type: ignore
@@ -535,6 +562,10 @@ class ThemeService:
             image_signed_expires_in=image_signed_expires,
             plays_count=plays,
             question_stats=[QuestionStatOut(**qs) for qs in q_stats],
+            comments=(comments_out if comments_out else None)
+            or ThemeCommentListOut(items=[], total=0),
+            score_avg=score_avg,
+            score_count=score_count,
         )
 
         return base
